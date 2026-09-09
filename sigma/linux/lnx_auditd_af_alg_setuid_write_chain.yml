@@ -1,0 +1,109 @@
+title: AF_ALG Socket Followed by splice Into Kernel Crypto (CVE-2026-31431 Exploit Shape)
+id: c41d9a72-6e58-4b3f-8d21-0f7a6c93be55
+status: experimental
+description: |
+  Higher-confidence, lower-recall companion to
+  lnx_auditd_af_alg_socket_creation.yml.
+
+  Where that rule fires on any AF_ALG socket, this one looks for the specific
+  sequence the published CVE-2026-31431 proof of concept must perform: an AF_ALG
+  socket created by a non-root user, followed shortly by a splice(2) call from
+  the same process. The exploit uses os.splice to move page cache pages into the
+  kernel crypto operation, and it cannot avoid that step and still work.
+
+  Use this one to page someone. Use the broader rule to hunt.
+
+  NULVEX HAS NOT TESTED THIS RULE. It is derived from the published description
+  of the exploit and from the syscall interface, not from captured telemetry of
+  a real attempt. The correlation window below is an estimate and should be
+  tuned against your own data before it is trusted.
+references:
+  - https://nulvex.com/research/cve/cve-2026-31431-af-alg-page-cache-write/
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-31431
+  - https://xint.io/blog/copy-fail-linux-distributions
+  - https://www.openwall.com/lists/oss-security/2026/04/29/23
+author: Nulvex Security Research
+date: 2026-09-09
+modified: 2026-09-09
+tags:
+  - attack.privilege-escalation
+  - attack.t1068
+  - attack.defense-evasion
+  - cve.2026-31431
+correlation:
+  type: temporal
+  rules:
+    - af_alg_socket_created
+    - splice_called
+  group-by:
+    - pid
+  timespan: 30s
+---
+title: AF_ALG socket created
+id: 2b7e4f10-9c33-4a8e-b6d5-1e94c7a20fd8
+name: af_alg_socket_created
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'SYSCALL'
+    syscall: 41
+    a0: 38
+    success: 'yes'
+  filter_root:
+    auid: 0
+  condition: selection and not filter_root
+---
+title: splice syscall
+id: 6d0a83bc-5f47-4c92-a10e-3b82fd51e947
+name: splice_called
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'SYSCALL'
+    syscall: 275        # splice(2) on x86_64
+    success: 'yes'
+  filter_root:
+    auid: 0
+  condition: selection and not filter_root
+fields:
+  - auid
+  - uid
+  - pid
+  - comm
+  - exe
+falsepositives:
+  - splice(2) is used legitimately for zero-copy I/O by proxies, media servers,
+    log shippers and some database engines. On its own it is common. The value of
+    this rule comes entirely from the correlation with an AF_ALG socket in the
+    same process, which is not a combination normal software produces.
+  - A host that genuinely uses AF_ALG for hardware crypto offload AND uses splice
+    in the same process could produce a false positive. We are not aware of a
+    common piece of software that does both, but we have not surveyed for one,
+    and you should confirm on your own estate rather than take that as settled.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Required auditd rules:
+#
+#   -a always,exit -F arch=b64 -S socket -F a0=38 -k af_alg_socket
+#   -a always,exit -F arch=b64 -S splice  -k splice_call
+#
+# The second rule is genuinely expensive on an I/O-heavy host, because splice is
+# a hot path for anything doing zero-copy. Two honest options:
+#
+#   1. Enable the splice rule only on hosts where the broad AF_ALG rule has
+#      already fired, as a second stage of investigation.
+#   2. Use eBPF tooling instead, where the same correlation costs far less.
+#
+# Do not enable the splice audit rule fleet-wide without measuring its cost
+# first. A detection that degrades the host it protects will be removed by
+# whoever owns that host, and then you have neither the performance nor the
+# detection.
+#
+# Syscall number 275 is splice on x86_64. On aarch64 splice is 76. If you run a
+# mixed-architecture estate, add the second variant rather than assuming.

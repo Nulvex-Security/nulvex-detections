@@ -1,0 +1,79 @@
+title: AF_ALG Kernel Crypto Socket Created by Non-Root User
+id: 8f2b1c4e-3a6d-4e91-9c07-5d8a2f4b7e13
+status: experimental
+description: |
+  Detects creation of an AF_ALG socket (address family 38), the Linux kernel's
+  userspace crypto interface.
+
+  AF_ALG exists so that userspace can drive kernel crypto drivers, typically for
+  hardware offload. On ordinary server workloads almost nothing uses it:
+  applications overwhelmingly use OpenSSL, libgcrypt, NSS or a language runtime's
+  own crypto, all of which work in userspace and never touch this interface.
+
+  That near-zero base rate is what makes this rule worth running. It is also the
+  required first step of the public CVE-2026-31431 exploit, which cannot avoid it
+  and still use the bug.
+
+  NULVEX HAS NOT TESTED THIS RULE AGAINST TELEMETRY FROM A REAL EXPLOITATION
+  ATTEMPT. It is written from the documented syscall behaviour and the published
+  exploit description. Validate it in your own environment before relying on it.
+references:
+  - https://nulvex.com/research/cve/cve-2026-31431-af-alg-page-cache-write/
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-31431
+  - https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  - https://xint.io/blog/copy-fail-linux-distributions
+author: Nulvex Security Research
+date: 2026-09-09
+modified: 2026-09-09
+tags:
+  - attack.privilege-escalation
+  - attack.t1068
+  - cve.2026-31431
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'SYSCALL'
+    syscall: 41          # socket(2)
+    a0: 38               # AF_ALG
+    success: 'yes'
+  filter_root:
+    auid: 0
+  condition: selection and not filter_root
+fields:
+  - auid
+  - uid
+  - pid
+  - comm
+  - exe
+falsepositives:
+  - Legitimate AF_ALG consumers. These exist and are the reason to measure before
+    alerting. Known users include cryptsetup and dm-crypt tooling in some
+    configurations, libkcapi and anything built on it, some strongSwan and IPsec
+    deployments that offload to kernel crypto, and FIPS-oriented stacks that
+    deliberately route through the kernel crypto module.
+  - Performance or crypto benchmarking tools.
+  - On a host where any of the above run, this rule will be noisy and should be
+    scoped to specific hosts or given an exclusion for the known executable path.
+level: medium
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# The auditd rule that produces the events this looks for:
+#
+#   -a always,exit -F arch=b64 -S socket -F a0=38 -k af_alg_socket
+#
+# Note that the rule above deliberately does NOT filter on auid, so that service
+# accounts below UID 1000 are also captured; the Sigma filter above excludes only
+# auid=0. Adjust to taste, but be aware that filtering on `auid>=1000` in the
+# auditd rule itself is a common and silent way to miss a service account.
+#
+# Before enabling this as an alert, run it as a hunt for at least a week of
+# representative load and confirm the base rate on your own hosts is what you
+# expect. A rule that fires daily gets turned off, and the value of this one is
+# entirely in its rarity.
+#
+# On hosts with eBPF-based tooling the same event is available more cheaply than
+# through auditd syscall rules. The field names differ by product; the condition
+# is the same, AF_ALG (38) as the family argument to socket().

@@ -1,0 +1,124 @@
+<!--
+  Nulvex Security Research - Wazuh ruleset
+  AF_ALG kernel crypto socket creation (CVE-2026-31431)
+
+  Purpose
+    Surface creation of AF_ALG sockets, the Linux kernel userspace crypto
+    interface. AF_ALG has a near-zero base rate on ordinary server workloads,
+    and it is the required first step of the public CVE-2026-31431 exploit.
+
+  Expected telemetry
+    Wazuh must be receiving auditd events from the endpoint. Add this to the
+    agent's audit rules and restart auditd:
+
+      -a always,exit -F arch=b64 -S socket -F a0=38 -k af_alg_socket
+
+    Wazuh's built-in auditd decoders populate audit.key, audit.syscall,
+    audit.exe, audit.auid and audit.uid. This ruleset keys off audit.key so it
+    does not depend on syscall number portability across architectures.
+
+  Rule IDs
+    Uses the 100000-100099 range, which Wazuh reserves for local rules. If that
+    range is already in use on your manager, renumber before deploying;
+    duplicate IDs cause the manager to refuse to start, which is a bad way to
+    find out.
+
+  TESTED STATUS: NOT TESTED.
+    Nulvex has not run this ruleset against telemetry from a real exploitation
+    attempt. It is written from the documented auditd field names and the
+    published exploit description. Validate in a lab before relying on it.
+
+  References
+    https://nulvex.com/research/cve/cve-2026-31431-af-alg-page-cache-write/
+    https://nvd.nist.gov/vuln/detail/CVE-2026-31431
+    https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+
+  Author: Nulvex Security Research
+  Date:   2026-09-09
+  Licence: Apache-2.0
+-->
+<group name="linux,audit,nulvex,cve_2026_31431,">
+
+  <!-- Base: any auditd event carrying our AF_ALG key. -->
+  <rule id="100010" level="3">
+    <if_group>audit</if_group>
+    <field name="audit.key">^af_alg_socket$</field>
+    <description>AF_ALG kernel crypto socket created</description>
+    <group>af_alg,</group>
+  </rule>
+
+  <!-- Root using AF_ALG is far more likely to be legitimate: cryptsetup,
+       dm-crypt tooling, an IPsec daemon offloading to kernel crypto. Kept at
+       informational so it is recorded and searchable without alerting. -->
+  <rule id="100011" level="3">
+    <if_sid>100010</if_sid>
+    <field name="audit.auid">^0$</field>
+    <description>AF_ALG socket created by root: $(audit.exe)</description>
+    <group>af_alg,</group>
+  </rule>
+
+  <!-- The one that matters. A non-root process opening the kernel crypto
+       interface on a host where nothing is expected to use it. -->
+  <rule id="100012" level="10">
+    <if_sid>100010</if_sid>
+    <field name="audit.auid" negate="yes">^0$</field>
+    <description>AF_ALG socket created by non-root user $(audit.auid) via $(audit.exe). Near-zero base rate on most hosts and a required step of the CVE-2026-31431 exploit. Investigate.</description>
+    <mitre>
+      <id>T1068</id>
+    </mitre>
+    <group>af_alg,privilege_escalation,</group>
+  </rule>
+
+  <!-- Interpreters are the shape of the published proof of concept, which is a
+       short Python script. Not proof of anything on its own, but a compiled
+       binary using AF_ALG is more plausibly a legitimate crypto consumer than a
+       shell one-liner is. -->
+  <rule id="100013" level="12">
+    <if_sid>100012</if_sid>
+    <field name="audit.exe">python|perl|ruby|/bin/sh$|/bin/bash$</field>
+    <description>AF_ALG socket created by a non-root interpreter process ($(audit.exe)). This matches the shape of the public CVE-2026-31431 proof of concept. Treat as probable exploitation attempt until shown otherwise.</description>
+    <mitre>
+      <id>T1068</id>
+      <id>T1059</id>
+    </mitre>
+    <group>af_alg,privilege_escalation,</group>
+  </rule>
+
+  <!--
+    FALSE POSITIVES
+
+    Legitimate AF_ALG consumers exist and are the reason to measure before
+    alerting rather than after:
+
+      - cryptsetup and dm-crypt tooling, in some configurations
+      - libkcapi, and anything built on it
+      - some strongSwan / IPsec deployments that offload to kernel crypto
+      - FIPS-oriented stacks that deliberately route through the kernel module
+      - crypto benchmarking tools
+
+    Rule 100013 narrows to interpreter processes, which are far less likely to
+    be a legitimate crypto consumer. It is not proof: an operator's own Python
+    automation could in principle use libkcapi. Treat it as high-confidence,
+    not certain.
+
+    On a host where any of the above run, this ruleset will be noisy and must be
+    scoped or excluded per executable path.
+
+    Tuning
+
+    If a legitimate consumer exists on a given host, exclude it by executable
+    path rather than by lowering the level. Silencing the rule loses the signal
+    everywhere; an exclusion loses it only where you have justified it.
+
+      <rule id="100014" level="0">
+        <if_sid>100012</if_sid>
+        <field name="audit.exe">^/usr/sbin/charon$</field>
+        <description>AF_ALG from strongSwan charon: expected on this host</description>
+      </rule>
+
+    Before deploying rule 100012 as an alert, run it at level 3 for a week and
+    look at what it actually catches on your estate. The whole value of this
+    ruleset is that it should almost never fire.
+  -->
+
+</group>

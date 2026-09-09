@@ -1,0 +1,110 @@
+# Nulvex Security Research - Suricata ruleset
+# CVE-2025-15467: OpenSSL CMS (Auth)EnvelopedData AEAD IV stack buffer overflow
+#
+# READ THIS BEFORE DEPLOYING. The caveat is larger than the rule.
+#
+# WHAT THIS CAN SEE
+#   CMS / PKCS#7 content crossing a boundary IN THE CLEAR. In practice that is
+#   cleartext SMTP between MTAs, HTTP submission endpoints that accept CMS, and
+#   internal service traffic that is not wrapped in TLS.
+#
+# WHAT THIS CANNOT SEE
+#   S/MIME inside an authenticated, TLS-protected SMTP session, which is how
+#   most real mail moves. Without TLS interception a network sensor has no
+#   visibility of the ASN.1 at all. If your CMS traffic is encrypted in transit,
+#   THIS RULE WILL NEVER FIRE, and its silence means nothing.
+#
+#   We would rather say that plainly than let a quiet rule be mistaken for an
+#   absence of attacks. The reliable detection for this CVE is at the endpoint:
+#   an OpenSSL-linked process crashing while parsing a message. See the analysis.
+#
+# TESTED STATUS: NOT TESTED.
+#   Validating this rule properly would mean constructing a CMS message with an
+#   oversized AEAD IV, which is a trigger for an unpatched stack overflow. The
+#   Nulvex publication policy does not permit us to build or ship that, so the
+#   rule is published on the strength of the DER structure alone and is labelled
+#   accordingly. Treat it as a starting point for your own validation.
+#
+# HOW IT WORKS
+#   In a CMS EncryptedContentInfo the contentEncryptionAlgorithm is an
+#   AlgorithmIdentifier whose parameters, for AES-GCM (RFC 5084), are a
+#   GCMParameters SEQUENCE beginning with the nonce as an OCTET STRING.
+#   A conformant AES-GCM nonce is 12 bytes; RFC 5084 allows other lengths but
+#   they are rare in practice. The rules below look for an OCTET STRING tag
+#   (0x04) carrying an implausibly long length immediately after one of the
+#   AES-GCM algorithm OIDs.
+#
+#   AES-128-GCM OID 2.16.840.1.101.3.4.1.6  DER: 06 09 60 86 48 01 65 03 04 01 06
+#   AES-192-GCM OID 2.16.840.1.101.3.4.1.26 DER: 06 09 60 86 48 01 65 03 04 01 1A
+#   AES-256-GCM OID 2.16.840.1.101.3.4.1.46 DER: 06 09 60 86 48 01 65 03 04 01 2E
+#
+#   0x04 0x81 <len>  = OCTET STRING, long form, one length byte  (128-255 bytes)
+#   0x04 0x82 <len>  = OCTET STRING, long form, two length bytes (256+ bytes)
+#
+#   Either is far outside any legitimate GCM nonce and is the shape of the
+#   oversized IV described in the OpenSSL advisory.
+#
+# REFERENCES
+#   https://nulvex.com/research/advisories/cve-2025-15467-openssl-cms-aead-iv-overflow/
+#   https://openssl-library.org/news/secadv/20260127.txt
+#   https://nvd.nist.gov/vuln/detail/CVE-2025-15467
+#   https://www.rfc-editor.org/rfc/rfc5084
+#
+# SID range 8000001-8000099 is Nulvex local. Renumber if it collides with your
+# own local range; do not renumber into a vendor range.
+#
+# Author: Nulvex Security Research
+# Date:   2026-09-09
+# Licence: Apache-2.0
+
+alert smtp any any -> any any ( \
+    msg:"NULVEX CVE-2025-15467 CMS AES-GCM parameters with oversized IV over cleartext SMTP"; \
+    flow:established; \
+    content:"|06 09 60 86 48 01 65 03 04 01 06|"; \
+    content:"|04 81|"; distance:0; within:4; \
+    threshold:type limit, track by_src, count 1, seconds 300; \
+    reference:cve,2025-15467; \
+    reference:url,openssl-library.org/news/secadv/20260127.txt; \
+    classtype:attempted-admin; \
+    metadata:created_at 2026_09_09, cve CVE_2025_15467, tested no, confidence low; \
+    sid:8000001; rev:1; )
+
+alert smtp any any -> any any ( \
+    msg:"NULVEX CVE-2025-15467 CMS AES-256-GCM parameters with oversized IV over cleartext SMTP"; \
+    flow:established; \
+    content:"|06 09 60 86 48 01 65 03 04 01 2E|"; \
+    content:"|04 81|"; distance:0; within:4; \
+    threshold:type limit, track by_src, count 1, seconds 300; \
+    reference:cve,2025-15467; \
+    reference:url,openssl-library.org/news/secadv/20260127.txt; \
+    classtype:attempted-admin; \
+    metadata:created_at 2026_09_09, cve CVE_2025_15467, tested no, confidence low; \
+    sid:8000002; rev:1; )
+
+alert http any any -> any any ( \
+    msg:"NULVEX CVE-2025-15467 CMS AES-GCM parameters with very large IV in HTTP request body"; \
+    flow:established,to_server; \
+    http.request_body; \
+    content:"|06 09 60 86 48 01 65 03 04 01|"; \
+    content:"|04 82|"; distance:0; within:6; \
+    threshold:type limit, track by_src, count 1, seconds 300; \
+    reference:cve,2025-15467; \
+    reference:url,openssl-library.org/news/secadv/20260127.txt; \
+    classtype:attempted-admin; \
+    metadata:created_at 2026_09_09, cve CVE_2025_15467, tested no, confidence low; \
+    sid:8000003; rev:1; )
+
+# FALSE POSITIVES
+#   RFC 5084 permits AES-GCM nonces other than 12 bytes, so a legitimate but
+#   unusual implementation could in principle carry a longer nonce. We consider
+#   a nonce of 128 bytes or more implausible in real traffic, but we have not
+#   measured this across a corpus and you should confirm before alerting rather
+#   than logging.
+#
+#   The `distance:0; within:N` window assumes the parameters follow the OID
+#   directly. A DER encoder that inserts unexpected structure between them will
+#   evade these rules. They detect the common encoding, not every possible one.
+#
+# WHAT NOT TO CONCLUDE
+#   These rules not firing is not evidence that you were not targeted. See the
+#   visibility caveat at the top.

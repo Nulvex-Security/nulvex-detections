@@ -1,0 +1,83 @@
+title: Python Process Killed by OOM Killer After Outbound HTTP Activity
+id: 5a3c8d16-42b7-4f0e-91ad-7c6b25e08f3a
+status: experimental
+description: |
+  Hunting rule for decompression-bomb resource exhaustion against an HTTP client,
+  including the class of bug described in CVE-2026-21441 (urllib3 decompressing
+  redirect response bodies without applying read limits).
+
+  This detects the CONSEQUENCE, not the vulnerability. A Python worker being
+  killed for memory exhaustion has many ordinary causes, and this rule cannot
+  tell them apart on its own. It is written for correlation and hunting, not for
+  paging anyone.
+
+  We would rather publish an honest weak signal, labelled as one, than dress a
+  symptom up as a detection.
+
+  NULVEX HAS NOT TESTED THIS RULE. It matches on documented kernel OOM killer
+  message formats, not on captured telemetry from a real decompression bomb.
+
+  The far better signal for this class is application-level and is one line of
+  your own code: log the ratio of decompressed bytes to received bytes for every
+  outbound fetch. A bomb is then unmissable, and the same instrumentation catches
+  every future variant of this bug. See the analysis for the reasoning and for
+  why we are not giving you a threshold to copy without measuring first.
+references:
+  - https://nulvex.com/research/cve/cve-2026-21441-urllib3-redirect-decompression/
+  - https://github.com/urllib3/urllib3/security/advisories/GHSA-38jv-5279-wg99
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-21441
+author: Nulvex Security Research
+date: 2026-09-09
+modified: 2026-09-09
+tags:
+  - attack.impact
+  - attack.t1499
+  - attack.t1499.004
+  - cve.2026-21441
+logsource:
+  product: linux
+  service: syslog
+detection:
+  oom_kill:
+    - 'Out of memory: Killed process'
+    - 'oom_reaper: reaped process'
+    - 'invoked oom-killer'
+  python_process:
+    - 'python'
+    - 'gunicorn'
+    - 'uwsgi'
+    - 'celery'
+  condition: oom_kill and python_process
+fields:
+  - host
+  - process
+  - message
+falsepositives:
+  - Genuine memory exhaustion with no security relevance, which will be the
+    overwhelming majority of hits. A worker with a legitimately large dataset, a
+    memory leak, an undersized container limit, or a batch job that grew.
+  - Any application that intentionally loads large objects into memory.
+  - This rule should be tuned to specific hosts that make outbound HTTP requests
+    to URLs an attacker can influence. Fleet-wide it is close to useless.
+level: informational
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Use this as a hunt, joined against outbound HTTP telemetry from the same host
+# in the minutes before the kill. On its own it tells you a process ran out of
+# memory, which your monitoring already told you.
+#
+# The pivot that makes it worth running:
+#
+#   1. Filter to hosts that fetch attacker-influenceable URLs (webhook senders,
+#      URL preview services, feed readers, scrapers, anything with an
+#      "import from URL" feature).
+#   2. Join to proxy or firewall logs for outbound requests from that host in the
+#      preceding two minutes.
+#   3. Look for a small response that preceded a large memory growth, and for a
+#      redirect chain that left an expected domain. In the CVE-2026-21441 case
+#      specifically, the decompression happened on the REDIRECT response, so the
+#      interesting hop is the 3xx, not the final 200.
+#
+# If you take one thing from this rule, take the application-level instrumentation
+# suggestion in the description instead. It is strictly better than this.
