@@ -6,13 +6,33 @@ description: |
   userspace crypto interface.
 
   AF_ALG exists so that userspace can drive kernel crypto drivers, typically for
-  hardware offload. On ordinary server workloads almost nothing uses it:
-  applications overwhelmingly use OpenSSL, libgcrypt, NSS or a language runtime's
-  own crypto, all of which work in userspace and never touch this interface.
+  hardware offload. Most applications never touch it: they use OpenSSL, libgcrypt,
+  NSS or a language runtime's own crypto, all of which work in userspace.
 
-  That near-zero base rate is what makes this rule worth running. It is also the
-  required first step of the public CVE-2026-31431 exploit, which cannot avoid it
-  and still use the bug.
+  CORRECTED 2026-09-24. An earlier version said "on ordinary server workloads
+  almost nothing uses it". That was overstated. Real consumers include cryptsetup,
+  iwd, libkcapi (used by dracut), bluez and iproute2, and the kernel's own AF_ALG
+  restriction work maintains an algorithm ALLOWLIST for unprivileged iwd, bluez
+  and iproute2 -- direct evidence that those programs open AF_ALG sockets in
+  normal operation. See falsepositives below, which was always the honest part of
+  this rule; the description was not.
+
+  The defensible claim is narrower: the base rate is low on SERVER workloads that
+  do not run iwd or bluez. On a laptop or desktop it may not be low at all. Nulvex
+  has NOT measured the per-host event rate, and consumer count is not event rate --
+  cryptsetup runs at unlock and dracut at initramfs build, while iwd and bluez are
+  the consumers likely to produce recurring events.
+
+  Where the base rate genuinely is low, this rule is worth running: AF_ALG socket
+  creation is the required first step of the public CVE-2026-31431 exploit, which
+  cannot avoid it and still use the bug.
+
+  Prefer mitigation over detection where the kernel supports it. AF_ALG was
+  deprecated in 2026 with parts removed in the 7.2 cycle, and the af_alg_restrict
+  sysctl (0 unrestricted, 1 limited allowlist, 2 disabled) defaults to 1 from
+  Linux 7.3. Setting it to 2 where no AF_ALG consumer is needed closes the
+  exposure outright, which is stronger than alerting on it. This rule's long-term
+  value declines as those kernels land.
 
   NULVEX HAS NOT TESTED THIS RULE AGAINST TELEMETRY FROM A REAL EXPLOITATION
   ATTEMPT. It is written from the documented syscall behaviour and the published
@@ -22,9 +42,13 @@ references:
   - https://nvd.nist.gov/vuln/detail/CVE-2026-31431
   - https://www.cisa.gov/known-exploited-vulnerabilities-catalog
   - https://xint.io/blog/copy-fail-linux-distributions
+  # Evidence for the 2026-09-24 base-rate correction: names the real AF_ALG
+  # consumers and the unprivileged allowlist, and documents af_alg_restrict.
+  - https://lwn.net/Articles/1088489/
+  - https://docs.kernel.org/crypto/userspace-if.html
 author: Nulvex Security Research
 date: 2026-09-09
-modified: 2026-09-09
+modified: 2026-09-24
 tags:
   - attack.privilege-escalation
   - attack.t1068
@@ -53,6 +77,12 @@ falsepositives:
     configurations, libkcapi and anything built on it, some strongSwan and IPsec
     deployments that offload to kernel crypto, and FIPS-oriented stacks that
     deliberately route through the kernel crypto module.
+  - iwd, bluez and iproute2. Added 2026-09-24. The kernel's AF_ALG restriction
+    work allowlists specific algorithms for these three as UNPRIVILEGED users of
+    the interface, so they are expected consumers rather than edge cases. iwd in
+    particular uses kernel crypto by design instead of bundling its own, so on a
+    host running it this rule should be assumed noisy until measured.
+  - dracut, via libkcapi, during initramfs builds.
   - Performance or crypto benchmarking tools.
   - On a host where any of the above run, this rule will be noisy and should be
     scoped to specific hosts or given an exclusion for the known executable path.
