@@ -1,0 +1,76 @@
+title: POST to the WordPress REST API Batch Endpoint (wp2shell hunting)
+id: 16f631e2-94a6-40d5-a62f-51a8f701714f
+status: experimental
+description: |
+  Hunting rule for exploitation attempts against CVE-2026-63030 ("wp2shell"), the
+  WordPress core REST API batch-route confusion that chains with the
+  author__not_in SQL injection (CVE-2026-60137) to reach remote code execution.
+  It affects WordPress 6.9.0 to 6.9.4 and 7.0.0 to 7.0.1. It is fixed in 6.9.5 and 7.0.2.
+
+  The discoverers (Searchlight Cyber / Assetnote) name exactly two request paths
+  into the flaw, and nothing else about the requests: /wp-json/batch/v1 and its
+  query-string alias ?rest_route=/batch/v1. This rule matches POSTs to either,
+  including the URL-encoded form of the alias. It does NOT identify an exploit
+  payload. The technical details have been withheld, and we will not guess them.
+
+  NULVEX HAS NOT TESTED THIS RULE. It is written from the discoverers' published
+  endpoint names and WordPress's documented REST routing. It has not been seen to
+  fire on captured exploit traffic.
+
+  The batch endpoint has legitimate callers, chiefly the block editor used by
+  logged-in staff. Treat a hit as a lead to check, not an alert. The useful
+  pivot is a POST here from an address that is not one of your own editors.
+references:
+  - https://nulvex.com/research/cve/cve-2026-63030-wordpress-wp2shell-batch-route-confusion/
+  - https://slcyber.io/research-center/wp2shell-pre-authentication-rce-in-wordpress-core/
+  - https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-ff9f-jf42-662q
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-63030
+author: Nulvex Security Research
+date: 2026-09-27
+modified: 2026-09-27
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - cve.2026-63030
+  - cve.2026-60137
+logsource:
+  category: webserver
+detection:
+  post:
+    cs-method: 'POST'
+  batch_path:
+    cs-uri-stem|contains: '/wp-json/batch/v1'
+  batch_alias:
+    cs-uri-query|contains:
+      - 'rest_route=/batch/v1'
+      - 'rest_route=%2Fbatch%2Fv1'
+      - 'rest_route=%2fbatch%2fv1'
+  condition: post and (batch_path or batch_alias)
+fields:
+  - c-ip
+  - cs-uri-stem
+  - cs-uri-query
+  - cs-user-agent
+  - sc-status
+falsepositives:
+  - The WordPress block editor and other authenticated admin tooling use the batch
+    endpoint during normal editing. Exclude your staff's addresses, or correlate
+    with a logged-in session, before treating a hit as suspicious.
+  - Plugins or headless front ends that call the batch endpoint on purpose.
+  - Vulnerability scanners, including your own and the public wp2shell.com checker,
+    will match. A match from a scanner you ran is expected.
+level: medium
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. The first job is not detection. Check that every WordPress site is on 6.9.5,
+#    7.0.2 or later. Patching removes the flaw; this rule only helps you look back.
+# 2. For hunting, filter hits to source addresses that are not your editors and
+#    look at the period since 2026-07-17, when the flaw became public.
+# 3. On a hit from an unknown address against a site that was on a vulnerable
+#    version at the time, treat the site as possibly compromised: look for new
+#    admin users, new or modified PHP files under wp-content, and unexpected
+#    outbound connections from the web server. Web logs alone will not tell you
+#    whether the attempt succeeded.

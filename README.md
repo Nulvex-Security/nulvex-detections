@@ -33,6 +33,7 @@ sigma/
   windows/       (empty until we have something real)
   application/   application-layer and runtime signals
   network/       (empty until we have something real)
+  web/           web server access-log detections
 yara/            (empty until we have something real)
 suricata/        network rules, SID range 8000000-8000999 reserved for Nulvex
 wazuh/
