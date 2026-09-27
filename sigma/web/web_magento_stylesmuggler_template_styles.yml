@@ -1,0 +1,92 @@
+title: Magento StyleSmuggler Exploitation Requests (CVE-2026-75650)
+id: b4728eda-6160-404d-b9ca-13e0334ca0c5
+status: experimental
+description: |
+  Detects the two published request stages of StyleSmuggler (CVE-2026-75650), the
+  unauthenticated template-injection RCE in Adobe Commerce and Magento Open Source
+  2.4.4 to 2.4.9, fixed by Adobe hotfix VULN-39341 (APSB26-146, 2026-09-07).
+
+  As published by the discoverers (Sansec):
+    Stage 1 posts PHP source in the query string of /paypal/transparent/response/,
+    which Magento writes into var/report/.
+    Stage 2 posts to /graphql with styles[...] parameters (styles[first] pointing
+    at a report or log file) that build the gadget chain, and every stage-2 URI
+    carries template_styles.
+
+  Unlike most of our rules, this one is built from request shapes the discoverers
+  observed in real attacks and published, not from inference. It is still
+  NULVEX HAS NOT TESTED THIS RULE: it has not been run against captured attack
+  traffic or against legitimate storefront traffic by us.
+
+  A hit on stage 2 against a store that was unpatched at the time should be
+  treated as a probable compromise, not a probe: stage 2 only makes sense after
+  stage 1 has planted code. Web logs will not show whether it succeeded; see the
+  analysis for host-side checks.
+references:
+  - https://nulvex.com/research/cve/cve-2026-75650-magento-stylesmuggler-template-injection/
+  - https://sansec.io/research/stylesmuggler-0day
+  - https://helpx.adobe.com/security/products/magento/apsb26-146.html
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-75650
+author: Nulvex Security Research
+date: 2026-09-27
+modified: 2026-09-27
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.execution
+  - attack.t1059.004
+  - cve.2026-75650
+logsource:
+  category: webserver
+detection:
+  stage1_path:
+    cs-uri-stem|contains: '/paypal/transparent/response'
+  stage1_php:
+    cs-uri-query|contains:
+      - '<?'
+      - '%3C%3F'
+      - '%3c%3f'
+  stage2_path:
+    cs-uri-stem|contains: '/graphql'
+  stage2_styles:
+    cs-uri-query|contains:
+      - 'template_styles'
+      - 'styles[first]'
+      - 'styles%5Bfirst%5D'
+      - 'styles%5bfirst%5d'
+      - 'styles[generatorClass]'
+      - 'styles%5BgeneratorClass%5D'
+  condition: (stage1_path and stage1_php) or (stage2_path and stage2_styles)
+fields:
+  - c-ip
+  - cs-method
+  - cs-uri-stem
+  - cs-uri-query
+  - cs-user-agent
+  - sc-status
+falsepositives:
+  - Security scanners and vulnerability checkers aimed at this CVE, including any
+    you run yourself, will match.
+  - No legitimate Magento storefront or GraphQL client is known to us to send
+    template_styles or styles[...] in the query string, or PHP open tags to the
+    PayPal transparent response endpoint, but we have not measured this against
+    real store traffic.
+  - Logs that do not record the query string (many default access-log formats do)
+    cannot match stage 1 or stage 2 at all; check your log format before relying
+    on silence.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Patch first: apply Adobe hotfix VULN-39341 and confirm with
+#      vendor/bin/magento-patches -n status | grep "39341\|Status"
+# 2. Run this over access logs from 2026-08-23 (first probes reported by Sansec)
+#    to the date you patched.
+# 3. Access logs rotate; Magento's var/log/exception.log often outlives them. The
+#    discoverers list its signatures (e.g. one
+#    'Laminas\Loader\Exception\InvalidArgumentException' per stage-2 attempt).
+#    Use grep -a on that file: the payloads make it read as binary.
+# 4. A match means: assume compromise, check for the implant and web shells, and
+#    rotate the encryption key and every credential it protected.
