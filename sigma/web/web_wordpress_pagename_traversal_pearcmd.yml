@@ -1,0 +1,89 @@
+title: WordPress pagename Path Traversal and pearcmd Chain (CVE-2026-87902)
+id: db28e513-610a-4c18-8638-d8157f25cdbb
+status: experimental
+description: |
+  Detects the request shapes published for CVE-2026-87902, the WordPress core
+  page-template file inclusion: an encoded "../" in the pagename query variable makes
+  get_page_template() include a local .php file outside the theme. With PEAR's
+  pearcmd.php and register_argc_argv=On it becomes code execution. It affects 4.7.0 to
+  7.1.1 and is fixed in 7.1.2 and backports to every branch down to 4.7.37
+  (2026-09-22). CISA KEV added it on 2026-09-25.
+
+  As published by Patchstack (2026-09-23) for hunting through existing logs:
+    - a pagename parameter containing %2e%2e or %252e%252e, often with page_id,
+      on the site root or /index.php;
+    - pearcmd.php reached with a +config-show (checking for PEAR) or +config-create
+      (writing a PHP file to /tmp or /var/tmp) argument;
+    - the scanner user agents cve-2026-87902-poc/1.0 and nuclei-cve-2026-87902/1.0.
+
+  Every string here is copied from vendor publications, not inferred. It is still
+  NULVEX HAS NOT TESTED THIS RULE: it has not been run against captured attack
+  traffic or against legitimate WordPress traffic by us.
+
+  Big blind spot: Patchstack reports that POST has overtaken GET, and WordPress reads
+  pagename from the POST body first. Access logs do not record bodies, so this rule
+  cannot see those attempts. A clean result is not a clean site.
+references:
+  - https://nulvex.com/research/cve/cve-2026-87902-wordpress-page-template-file-inclusion/
+  - https://patchstack.com/articles/cve-2026-87902-attackers-started-probing-wordpress-sites-hours-after-the-patch/
+  - https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-7hp8-65ch-5whp
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-87902
+author: Nulvex Security Research
+date: 2026-09-28
+modified: 2026-09-28
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.execution
+  - cve.2026-87902
+logsource:
+  category: webserver
+detection:
+  sel_pagename:
+    cs-uri-query|contains: 'pagename='
+  sel_encoded_dots:
+    cs-uri-query|contains:
+      - '%2e%2e'
+      - '%252e%252e'
+  sel_pearcmd:
+    cs-uri-query|contains: 'pearcmd'
+  sel_pear_action:
+    cs-uri-query|contains:
+      - 'config-show'
+      - 'config-create'
+  sel_scanner_agent:
+    cs-user-agent|contains:
+      - 'cve-2026-87902-poc/'
+      - 'nuclei-cve-2026-87902/'
+  condition: (sel_pagename and sel_encoded_dots) or (sel_pearcmd and sel_pear_action) or sel_scanner_agent
+fields:
+  - c-ip
+  - cs-method
+  - cs-uri-stem
+  - cs-uri-query
+  - cs-user-agent
+  - sc-status
+falsepositives:
+  - Vulnerability scanners aimed at this CVE, including any you run yourself, will
+    match.
+  - Dots are never percent-encoded in a real WordPress page slug, so a legitimate
+    pagename should not contain %2e%2e. Non-ASCII slugs do contain other
+    percent-encoding, which this rule deliberately ignores. We have not measured
+    this against real site traffic.
+  - Logs that drop the query string cannot match the first two selections at all.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Update first: WordPress 7.1.2, or the fixed release for your branch, and confirm
+#    the version on the site itself (Dashboard -> Updates, or wp core version).
+# 2. Run this over access logs from 2026-09-22 onwards.
+# 3. A hit on the pearcmd selection with config-create against a site that was
+#    unpatched at the time means: check /tmp and /var/tmp for PHP files. Patchstack
+#    names wp-pear-rce-flag.php, poc87902.php, luci_<random>.php and
+#    zeta_<random>.php and says their presence means the host should be treated as
+#    compromised.
+# 4. A 200 on a normal page URL whose response is OPML or RSS output means a
+#    stage-one probe worked (Patchstack).
