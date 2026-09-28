@@ -1,0 +1,95 @@
+title: MikroTik RouterOS MikroTrick SSH Takeover Markers (CVE-2026-67279, CVE-2026-86060)
+id: f330e694-5cff-4252-a573-2f75ab7d7ef4
+status: experimental
+description: |
+  Detects the RouterOS log markers and source addresses that CERT Polska published
+  for "MikroTrick", the unauthenticated SSH takeover chain in MikroTik RouterOS:
+  CVE-2026-67279 (after a client-requested rekey, SSH skips authentication) chained
+  with CVE-2026-86060 (a username starting with a dash is turned into a trusted
+  administrative identity). Fixed in 6.49.21, 7.23.4 and 7.24.2. Exploited since at
+  least 2026-09-02 (CERT Polska); CISA KEV lists CVE-2026-86060 (2026-09-10) and
+  CVE-2026-67279 (2026-09-25).
+
+  As published by CERT Polska (2026-09-05), the observed attacks left:
+    login failure for user -2 from <ip> via ssh
+    user <name> added by ssh:-2@<ip>
+  plus a highly privileged user named "ops", with successful attacks from
+  82.192.72.4 and attempts from 103.102.31.18.
+
+  Every string here is copied from that publication, not inferred. It is still
+  NULVEX HAS NOT TESTED THIS RULE: we have not run it against RouterOS logs from an
+  attacked or a clean device.
+
+  RouterOS keeps its log in memory by default and loses it on reboot. This rule
+  can only see what was sent to remote syslog (/system logging action with
+  target=remote) at the time. Silence is not a clean bill of health: attackers who
+  used another source address or another account name will not match.
+references:
+  - https://nulvex.com/research/cve/cve-2026-67279-mikrotik-routeros-mikrotrick-ssh-takeover/
+  - https://cert.pl/en/posts/2026/09/vulnerabilities-in-mikrotik-routeros-actively-exploited/
+  - https://cert.pl/en/posts/2026/09/mikrotik-routeros-cve
+  - https://bishopfox.com/blog/mikrotrick-inside-the-routeros-takeover-chain
+  - https://mikrotik.com/supportsec/september-2026-vulnerability/
+author: Nulvex Security Research
+date: 2026-09-28
+modified: 2026-09-28
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.persistence
+  - attack.t1136
+  - cve.2026-67279
+  - cve.2026-86060
+logsource:
+  product: routeros
+  service: syslog
+  definition: |
+    RouterOS messages forwarded to remote syslog. There is no standard Sigma
+    logsource for RouterOS; map "message" to whatever field holds the log text.
+detection:
+  sel_login_marker:
+    message|contains|all:
+      - 'login failure for user -2 from'
+      - 'via ssh'
+  sel_user_added_by_chain:
+    message|contains: 'added by ssh:-2@'
+  sel_ops_account:
+    message|contains: 'user ops added'
+  sel_published_sources:
+    message|contains:
+      - '82.192.72.4'
+      - '103.102.31.18'
+  condition: 1 of sel_*
+fields:
+  - host
+  - message
+falsepositives:
+  - An administrator who genuinely names an account "ops" will match
+    sel_ops_account. Confirm who created it and when.
+  - The two addresses are the ones CERT Polska observed in early September 2026.
+    Addresses get reassigned; a hit on them alone, long after that, is a lead,
+    not proof.
+  - No legitimate login is known to us to use the username "-2", or to create
+    a user through "ssh:-2@", but we have not measured this against real RouterOS
+    logs.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Upgrade first: at least 7.24.3 (stable), 7.23.6 (long-term) or 6.49.21 (v6).
+#    7.24.2 and 7.23.4 stop MikroTrick, but CERT Polska reports their fix for the
+#    related CVE-2026-67278 was incomplete.
+# 2. A match on either of the first two selections means: assume the router was
+#    taken over. Secure the logs and configuration, then reset and rebuild it from
+#    a known-good configuration (CERT Polska's recommendation). Do not restore a
+#    backup taken from the compromised device.
+# 3. Logs are volatile, so check the configuration too. On the router:
+#      /system/device-mode/print                     (flagged: yes ?)
+#      /user print detail
+#      /system script print detail where owner="0"
+#      /system scheduler print detail where owner="0"
+#    Bishop Fox found a script named "logrotate" run daily by a scheduler named
+#    "daily-maint" (owner="0") that recreated a full-privilege account if it was
+#    removed. owner="0" is a hunting lead, not proof on its own.
