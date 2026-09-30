@@ -32,7 +32,7 @@ sigma/
   linux/         auditd and eBPF-sourced detections
   windows/       (empty until we have something real)
   application/   application-layer and runtime signals
-  network/       (empty until we have something real)
+  network/       network-device and router log detections
   web/           web server access-log detections
 yara/            (empty until we have something real)
 suricata/        network rules, SID range 8000000-8000999 reserved for Nulvex
@@ -43,6 +43,25 @@ docs/            deployment notes and the conventions below
 ```
 
 Empty directories are left empty deliberately. A placeholder rule is worse than no rule.
+
+## Rule index
+
+Each rule links to the analysis that explains it: what the flaw is, who is exposed, and what
+the rule can and cannot see. **All of them are untested** (see above).
+
+| Rule | Detects | CVE | Analysis |
+|---|---|---|---|
+| [net_routeros_mikrotrick_ssh_takeover.yml](sigma/network/net_routeros_mikrotrick_ssh_takeover.yml) | RouterOS log markers and source addresses published by CERT Polska for the MikroTrick SSH takeover | CVE-2026-67279, CVE-2026-86060 | [MikroTrick: the 6.5 that takes over MikroTik routers](https://nulvex.com/research/cve/cve-2026-67279-mikrotik-routeros-mikrotrick-ssh-takeover/) |
+| [web_wordpress_pagename_traversal_pearcmd.yml](sigma/web/web_wordpress_pagename_traversal_pearcmd.yml) | Encoded traversal in WordPress `pagename`, the pearcmd follow-up, and the published scanner agents | CVE-2026-87902 | [WordPress core file inclusion](https://nulvex.com/research/cve/cve-2026-87902-wordpress-page-template-file-inclusion/) |
+| [web_magento_stylesmuggler_template_styles.yml](sigma/web/web_magento_stylesmuggler_template_styles.yml) | The two published request stages of StyleSmuggler | CVE-2026-75650 | [StyleSmuggler: patching Magento is the easy part](https://nulvex.com/research/cve/cve-2026-75650-magento-stylesmuggler-template-injection/) |
+| [web_wordpress_rest_batch_endpoint_post.yml](sigma/web/web_wordpress_rest_batch_endpoint_post.yml) | POSTs to the WordPress REST batch endpoint (hunting) | CVE-2026-63030 | [wp2shell](https://nulvex.com/research/cve/cve-2026-63030-wordpress-wp2shell-batch-route-confusion/) |
+| [lnx_auditd_af_alg_setuid_write_chain.yml](sigma/linux/lnx_auditd_af_alg_setuid_write_chain.yml) | AF_ALG socket followed by splice into kernel crypto | CVE-2026-31431 | [Linux AF_ALG page-cache write](https://nulvex.com/research/cve/cve-2026-31431-af-alg-page-cache-write/) |
+| [lnx_auditd_af_alg_socket_creation.yml](sigma/linux/lnx_auditd_af_alg_socket_creation.yml) | AF_ALG socket created by a non-root user | CVE-2026-31431 | [Linux AF_ALG page-cache write](https://nulvex.com/research/cve/cve-2026-31431-af-alg-page-cache-write/) |
+| [nulvex_af_alg_socket.xml](wazuh/linux/nulvex_af_alg_socket.xml) | Wazuh version of the AF_ALG socket rules | CVE-2026-31431 | [Linux AF_ALG page-cache write](https://nulvex.com/research/cve/cve-2026-31431-af-alg-page-cache-write/) |
+| [app_python_decompression_bomb_oom.yml](sigma/application/app_python_decompression_bomb_oom.yml) | A Python process killed by the OOM killer after outbound HTTP activity | CVE-2026-21441 | [urllib3 redirect decompression](https://nulvex.com/research/cve/cve-2026-21441-urllib3-redirect-decompression/) |
+| [nulvex-cms-oversized-aead-iv.rules](suricata/nulvex-cms-oversized-aead-iv.rules) | CMS AES-GCM parameters with an oversized IV over cleartext SMTP | CVE-2025-15467 | [OpenSSL CMS AEAD IV overflow](https://nulvex.com/research/advisories/cve-2025-15467-openssl-cms-aead-iv-overflow/) |
+
+New rules are added here in the same commit that adds the rule.
 
 ## Every rule carries
 
