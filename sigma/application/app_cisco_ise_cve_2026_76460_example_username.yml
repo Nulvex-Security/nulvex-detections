@@ -1,0 +1,27 @@
+title: Cisco ISE CVE-2026-76460 Published Example Username
+id: 21f3aa06-76c2-4d53-bc97-e78969868aca
+status: experimental
+description: "NULVEX HAS NOT TESTED THIS RULE. Matches the literal dummyuser string from Cisco PSIRT's non-exhaustive access-log check for CVE-2026-76460. Cisco presents this as an example suspicious username, not a complete attacker account list. A match is a hunting lead and does not establish compromise. This rule has not been tested against benign or malicious events."
+references:
+  - https://nulvex.com/research/cve/cve-2026-76460-cisco-ise-authentication-bypass/
+  - https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-ISE-ABP-VNSW7Tn5
+  - https://threatprotect.qualys.com/2026/09/17/cisa-warns-of-cisco-identity-services-engine-authentication-bypass-vulnerability-cve-2026-76460/
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - cve.2026-76460
+logsource:
+  product: cisco
+  service: ise_apigateway
+  definition: "Raw access.log events from Cisco ISE and ISE-PIC API gateway logs on every node, including dated access logs. This service label identifies the required ingestion scope. Preserve raw text for keyword matching; no normalised username field is assumed."
+detection:
+  keywords:
+    - dummyuser
+  condition: keywords
+falsepositives:
+  - An authorised account or test activity using the example username
+  - The same text occurring in another part of a benign access-log event
+  - Unrelated activity containing the string; confirm its context and device scope
+level: medium
+# Tested status: NOT TESTED.

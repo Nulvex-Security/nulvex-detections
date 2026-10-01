@@ -1,0 +1,31 @@
+title: Cisco SD-WAN Manager Reserved Account Log Triage
+id: 06c736be-a928-5e5d-996c-bf556e365d47
+status: experimental
+description: "Untested. Selects the reserved-service-account message fragments published by Cisco for CVE-2026-76504 investigation. Normal operations can match; correlate with service-proxy access logs and approved client addresses. This rule does not establish exploitation."
+references:
+  - https://nulvex.com/research/cve/cve-2026-76504-cisco-catalyst-sd-wan-manager/
+  - https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-webauth-xr8beuuU
+  - https://www.rapid7.com/blog/post/etr-critical-cisco-catalyst-sd-wan-manager-api-authentication-bypass-exploited-in-the-wild-cve-2026-76504/
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - cve.2026-76504
+logsource:
+  category: application
+  product: cisco
+  service: sdwan_manager
+  definition: "Only /var/log/nms/vmanage-server.log from Cisco Catalyst SD-WAN Manager. Map the original unmodified log line to message. Service-proxy access logs are separate correlation evidence."
+detection:
+  selection_vendor_message:
+    message|contains|all:
+      - 'Request Stored in Map is'
+      - 'for user (viptela-reserved-'
+  condition: selection_vendor_message
+fields:
+  - message
+falsepositives:
+  - "Normal activity involving reserved system service accounts, as Cisco cautions. Establish the actual client address and expected network posture before escalation."
+level: medium
+# Tested status: UNTESTED. Validate field mapping and expected service activity before use.
+# No client IP allowlist is assumed. Authorization must be assessed during triage.
