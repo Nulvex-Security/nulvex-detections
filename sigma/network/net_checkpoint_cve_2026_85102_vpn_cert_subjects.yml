@@ -1,0 +1,84 @@
+title: Check Point CVE-2026-85102 Published Attacker Certificate Subjects
+id: 333c6759-f95e-4a3e-ae3c-3296ae02b9ee
+status: experimental
+description: |
+  Detects Check Point gateway or Spark firewall log events that contain one of the
+  three certificate subjects Check Point says were used in exploitation attempts
+  against CVE-2026-85102, the improper certificate validation flaw in Remote Access
+  and Site-to-Site VPN negotiation that can allow unauthenticated remote code
+  execution on the gateway (CWE-295). Fixed by LivePatch Take 26 (R81.20, R82,
+  R82.10), Jumbo Hotfix R82.10 Take 44, R82 Take 126, R81.20 Take 166, R81.10
+  Take 190, and Spark R82.00.10 Build 2325 / R81.10.17 Build 4968, or later.
+  R82.20 is not affected. CISA KEV added it on 2026-09-22.
+
+  Sources of the indicators (all three copied, not inferred):
+    - CN=vpn,OU=users,O=global
+    - CN=vpn-user,OU=users,O=global
+    - CN=vpnuser,OU=users,O=global
+    Check Point, sk1000117 ("How to identify this attack", update of 2026-09-20,
+    last modified 2026-09-24), and the Check Point blog advisory of 2026-09-22
+    ("Observed Attacks"). Check Point observed them in attempts against Spark
+    customers from 2026-09-12 and says the list is not exhaustive.
+
+  NULVEX HAS NOT TESTED THIS RULE: we have not run it against logs from an
+  attacked or a clean Check Point gateway, and we do not know exactly how each
+  log pipeline renders a certificate subject.
+
+  Silence is not a clean bill of health. Check Point's own hunting query in
+  SmartConsole Logs & Monitor or Spark management is:
+    product: "Mobile Access" AND action: "Log In" AND "Certificate"
+  Review every result after 2026-09-12 for unrecognised users, clients or source
+  addresses, whatever the certificate subject.
+references:
+  - https://nulvex.com/research/cve/cve-2026-85102-check-point-vpn-certificate-rce/
+  - https://support.checkpoint.com/results/sk/sk1000117
+  - https://blog.checkpoint.com/security/security-advisory-action-required-active-exploitation-of-cve-2026-85102-and-a-management-pre-authentication-vulnerability-cve-2026-93616/
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-85102
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.t1133
+  - cve.2026-85102
+logsource:
+  product: checkpoint
+  definition: |
+    Check Point Security Gateway or Spark firewall logs (Mobile Access and VPN
+    events, including certificate-based logins) forwarded to a SIEM, for example
+    through Check Point Log Exporter or syslog. The rule is a full-text keyword
+    match, so it does not depend on a field name for the certificate subject.
+detection:
+  keywords_checkpoint_published_subjects:
+    - 'CN=vpn,OU=users,O=global'
+    - 'CN=vpn-user,OU=users,O=global'
+    - 'CN=vpnuser,OU=users,O=global'
+  condition: keywords_checkpoint_published_subjects
+falsepositives:
+  - A legitimate certificate issued with exactly one of these subjects. Unlikely,
+    but confirm with whoever runs your certificate authority before acting.
+  - Logs from a security test or a scanner that reuses the published subjects.
+  - A hit is a lead, not proof of compromise. A failed attempt on a patched
+    gateway can also log the subject; check whether the login succeeded and what
+    the session did afterwards.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Patch first. Spark: R82.00.10 Build 2325 or R81.10.17 Build 4968, or later
+#    (no LivePatch on Spark). Quantum gateways: LivePatch Take 26 or the Jumbo
+#    Hotfix takes above. Check Point's mitigation (explicit VPN rules instead of
+#    implied rules) does not apply to locally managed Spark firewalls.
+# 2. Run it over logs from at least 2026-09-12 onwards.
+# 3. Formatting: the strings match Check Point's published text exactly. If your
+#    pipeline writes subjects with spaces after the commas, in reverse order or
+#    escaped, add those forms in your own copy.
+# 4. A hit: identify the VPN session, check whether it logged in, and review
+#    what it did inside the network. Check Point says follow-up activity often
+#    involves internal port and service scans.
+# 5. CVE-2026-93616 (management servers) is not covered. Use the Expert-mode
+#    checks in sk1000171 on each Security Management, Multi-Domain, Log and
+#    SmartEvent server.
