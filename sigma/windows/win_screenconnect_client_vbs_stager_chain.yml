@@ -1,0 +1,109 @@
+title: ScreenConnect Client Runs Published VBScript Stagers (CVE-2026-84869 Campaign)
+id: d7a11680-7e4a-4ef4-a889-4c0c0ee2371e
+status: experimental
+description: |
+  Detects the process activity that Huntress published for the campaign linked to
+  CVE-2026-84869 in ConnectWise ScreenConnect. The flaw, fixed in ScreenConnect
+  26.6.5 (2026-09-08), may let files be transferred and executed through an active
+  remote session without authorization or Host confirmation. CISA added it to the
+  Known Exploited Vulnerabilities catalog on 2026-09-11.
+
+  As published by Huntress (first posted 2026-09-03, last updated 2026-09-09):
+    - ScreenConnect.WindowsClient.exe spawning wscript.exe to run four VBScript
+      stagers named 1.vbs, 2.vbs, 3.vbs and 4.vbs (incidents of 2026-08-20 and
+      2026-08-24). Modified clients pushed the same four files to Host sessions that
+      connected to them, and ran them there.
+    - Persistence through a User Run key named WindowsServiceHost that points to
+      WindowsServiceHost.vbs in the user's AppData directory, run by wscript.exe.
+
+  Every file and process name here is copied from that publication, not inferred.
+  NULVEX HAS NOT TESTED THIS RULE: we have not run it against process telemetry from
+  an affected or a clean machine.
+
+  Huntress warns the file names may change. Silence is not a clean bill of health:
+  renamed stagers, or a stager run by another process, will not match.
+references:
+  - https://nulvex.com/research/cve/cve-2026-84869-connectwise-screenconnect-host-file-execution/
+  - https://www.huntress.com/blog/rogue-screenconnect-installations
+  - https://www.connectwise.com/company/trust/security-bulletins/2026-09-08-screenconnect-bulletin
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-84869
+author: Nulvex Security Research
+date: 2026-10-01
+modified: 2026-10-01
+tags:
+  - attack.execution
+  - attack.t1059.005
+  - attack.lateral-movement
+  - attack.t1570
+  - attack.persistence
+  - attack.t1547.001
+  - cve.2026-84869
+logsource:
+  category: process_creation
+  product: windows
+  definition: |
+    Process creation with full command lines: Sysmon Event ID 1, or Windows Security
+    Event ID 4688 with "Include command line in process creation events" enabled.
+    Without command lines, neither selection can match.
+detection:
+  # Source: Huntress, "Key Takeaways", Figure 1 and the incident write-ups.
+  sel_chain_parent:
+    ParentImage|endswith: '\ScreenConnect.WindowsClient.exe'
+  sel_chain_image:
+    Image|endswith: '\wscript.exe'
+  sel_chain_scripts:
+    CommandLine|contains:
+      - '1.vbs'
+      - '2.vbs'
+      - '3.vbs'
+      - '4.vbs'
+  # Source: Huntress, Run key WindowsServiceHost pointing to WindowsServiceHost.vbs,
+  # listed in the IOC table as "VBScript file executed through wscript.exe".
+  sel_persistence:
+    Image|endswith: '\wscript.exe'
+    CommandLine|contains: 'WindowsServiceHost.vbs'
+  condition: all of sel_chain_* or sel_persistence
+fields:
+  - ComputerName
+  - User
+  - ParentImage
+  - Image
+  - CommandLine
+falsepositives:
+  - A technician who legitimately runs a VBScript through ScreenConnect whose name
+    ends in 1.vbs to 4.vbs (for example "setup1.vbs") will match sel_chain_*.
+    Confirm the file, its hash and who started the session.
+  - A legitimate script named WindowsServiceHost.vbs is not known to us, but we have
+    not measured this against real telemetry.
+  - Base rate not measured. MSP environments run many scripts through ScreenConnect.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Upgrade first: ScreenConnect 26.6.5 or later (on-premises; cloud instances were
+#    upgraded by ConnectWise). Then, as ConnectWise instructs, reinstall the host
+#    clients and update the access agents. The fix is in the client.
+# 2. A match on a technician's computer may mean an infected remote machine pushed
+#    the scripts to it during a session. Find the session in the ScreenConnect audit
+#    log: Huntress says RunFiles or RanFiles entries for these scripts, executed from
+#    "Process: Guest", should be treated as suspicious immediately.
+# 3. Huntress recommends reimaging affected hosts from known-good media.
+# 4. Other indicators Huntress published, for hunting in other telemetry:
+#      SHA256 1.vbs  08bc4e82883eb42fc5219b206555b7a02a879860c76b4a12b2f82a64f6cc9020
+#      SHA256 2.vbs  de3b6836a88ae4b117e3b6de0e9cce3cd56a2b27b462d69e50c2fcac4089a457
+#      SHA256 2.vbs  19a3534da9f60c726be426ec5cc2b72c2d1254fefa0782bd2f08ef08117f3260
+#      SHA256 3.vbs  110fffc85370bb7cc60fa023447165c7e99175473d76bc5ffb2abecaa3a41d66
+#      SHA256 4.vbs  de89d560fc8302c778d88e3938327b240fa0db9a64fc1d5643067eedcbd2aede
+#      SHA256 WindowsServiceHost.vbs
+#                    ffd6d23f579571cc61936145791975da78b6ae914d780a9447a8f53c3688a0de
+#      ScreenConnect ID 7a4d7d66502d4260 (malicious, per Huntress)
+#      Files: %TEMP%\value.txt, %TEMP%\map.txt, %TEMP%\runner.ps1,
+#             %APPDATA%\Microsoft\Windows\Templates\Classic\sys_cache.zip,
+#             C:\Users\Public\Libraries\Default\Lib\Lib1, PyTorchFix.ps1,
+#             Themes.exe (wstunnel), SearchIndex.exe (XMRig), svcdrv64.sys (WinRing0)
+#      Network (August 2026, defanged as published): 45.13.237[.]190,
+#             131.123.40[.]98:8041, 146.59.55[.]107, 45.32.192[.]150,
+#             15.204.185[.]204, tele-sync.opik[.]net, borertors92.anondns[.]net,
+#             homehub.opik[.]net:443

@@ -30,7 +30,7 @@ rather say that plainly than let the count imply coverage we have not earned.
 ```
 sigma/
   linux/         auditd and eBPF-sourced detections
-  windows/       (empty until we have something real)
+  windows/       Windows process-creation detections
   application/   application-layer and runtime signals
   network/       network-device and router log detections
   web/           web server access-log detections
@@ -52,6 +52,8 @@ the rule can and cannot see. **All of them are untested** (see above).
 | Rule | Detects | CVE | Analysis |
 |---|---|---|---|
 | [net_routeros_mikrotrick_ssh_takeover.yml](sigma/network/net_routeros_mikrotrick_ssh_takeover.yml) | RouterOS log markers and source addresses published by CERT Polska for the MikroTrick SSH takeover | CVE-2026-67279, CVE-2026-86060 | [MikroTrick: the 6.5 that takes over MikroTik routers](https://nulvex.com/research/cve/cve-2026-67279-mikrotik-routeros-mikrotrick-ssh-takeover/) |
+| [win_screenconnect_client_vbs_stager_chain.yml](sigma/windows/win_screenconnect_client_vbs_stager_chain.yml) | The ScreenConnect client starting the four VBScript stagers, and the WindowsServiceHost persistence, published by Huntress | CVE-2026-84869 | [ScreenConnect: a support session turned against the technician](https://nulvex.com/research/cve/cve-2026-84869-connectwise-screenconnect-host-file-execution/) |
+| [net_ncentral_cve_2026_86218_scan_range.yml](sigma/network/net_ncentral_cve_2026_86218_scan_range.yml) | Traffic from the address range N-able says scanned for the N-central pre-auth flaw | CVE-2026-86218 | [N-central: pre-auth takeover of the MSP server](https://nulvex.com/research/cve/cve-2026-86218-n-able-n-central-pre-auth-rce/) |
 | [web_wordpress_pagename_traversal_pearcmd.yml](sigma/web/web_wordpress_pagename_traversal_pearcmd.yml) | Encoded traversal in WordPress `pagename`, the pearcmd follow-up, and the published scanner agents | CVE-2026-87902 | [WordPress core file inclusion](https://nulvex.com/research/cve/cve-2026-87902-wordpress-page-template-file-inclusion/) |
 | [web_magento_stylesmuggler_template_styles.yml](sigma/web/web_magento_stylesmuggler_template_styles.yml) | The two published request stages of StyleSmuggler | CVE-2026-75650 | [StyleSmuggler: patching Magento is the easy part](https://nulvex.com/research/cve/cve-2026-75650-magento-stylesmuggler-template-injection/) |
 | [web_wordpress_rest_batch_endpoint_post.yml](sigma/web/web_wordpress_rest_batch_endpoint_post.yml) | POSTs to the WordPress REST batch endpoint (hunting) | CVE-2026-63030 | [wp2shell](https://nulvex.com/research/cve/cve-2026-63030-wordpress-wp2shell-batch-route-confusion/) |

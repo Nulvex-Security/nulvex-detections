@@ -1,0 +1,83 @@
+title: N-able N-central CVE-2026-86218 Published Scanning Range
+id: 6e943108-e48c-498d-9039-1ae4dfb1e637
+status: experimental
+description: |
+  Detects network traffic from 23.234.64.0/18, the address range N-able says it saw
+  scanning "attempting to exploit" CVE-2026-86218, the pre-authentication remote code
+  execution flaw (CWE-96, static code injection) in self-hosted N-able N-central before
+  build 2026.3.1.14. Fixed in 2026.3 Hotfix 4 (2026.3.1.14) and in 2026.4 (2026.4.0.27);
+  hosted N-central (NCOD) was patched by N-able. CISA KEV added it on 2026-09-08.
+
+  Sources of the indicator:
+    - 23.234.64.0/18: N-able, "N-central Security Update - Take Action to Apply
+      2026.3 HF4", update of 2026-09-06 ("How to Check for Indicators of Compromise").
+    - Huntress lists two "Intruder IPv4 (Tzulo VPN)" addresses, 23.234.100.105 and
+      23.234.97.68 (update of 2026-09-05), from an intrusion where it could not confirm
+      which N-central flaw was used. Both fall inside N-able's range, so this rule
+      covers them without listing them separately.
+
+  The range is copied from N-able's publication, not inferred.
+  NULVEX HAS NOT TESTED THIS RULE: we have not run it against traffic to an attacked
+  or a clean N-central server.
+
+  Scope it to traffic towards your N-central server. Silence is not a clean bill of
+  health: attackers can use any other address. Auditing N-central user accounts (for
+  example email addresses ending in ".invalid", per N-able) matters more.
+references:
+  - https://nulvex.com/research/cve/cve-2026-86218-n-able-n-central-pre-auth-rce/
+  - https://www.n-able.com/blog/n-central-security-hotfix-september-5-2026
+  - https://status.n-able.com/2026/09/06/n-central-2026-3-hotfix-4-cve-2026-86218/
+  - https://www.huntress.com/blog/n-able-vulnerability-exploitation
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-86218
+author: Nulvex Security Research
+date: 2026-10-01
+modified: 2026-10-01
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.reconnaissance
+  - attack.t1595
+  - cve.2026-86218
+logsource:
+  category: firewall
+  definition: |
+    Firewall, proxy or load-balancer connection logs in front of the N-central
+    server. Map src_ip to the field holding the client address. To narrow it, add
+    the N-central server's address as a dst_ip condition in your own copy.
+detection:
+  selection_nable_published_range:
+    src_ip|cidr: '23.234.64.0/18'
+  condition: selection_nable_published_range
+fields:
+  - src_ip
+  - dst_ip
+  - dst_port
+  - action
+falsepositives:
+  - Huntress labels its two addresses in this range as a commercial VPN service
+    (Tzulo VPN). Legitimate users of that service, including your own staff, can
+    match. Confirm who was connecting before acting.
+  - The range also appeared in August. Huntress lists 23.234.94.43, one of the
+    addresses N-able published on 2026-08-06 for the earlier N-central
+    authentication-bypass campaign, and it falls inside this range. A hit may
+    relate to that campaign rather than to CVE-2026-86218.
+  - Addresses get reassigned. A hit long after September 2026 is a lead, not proof.
+level: medium
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Upgrade first: self-hosted N-central 2026.3.1.14 (2026.3 Hotfix 4) or
+#    2026.4.0.27. Hotfix 3 (2026.3.1.13) does NOT fix CVE-2026-86218.
+# 2. Run this over logs from at least 2026-08-01 onwards, and copy the N-central
+#    appliance logs off the server before upgrading if you still have them: Huntress
+#    could not identify the flaw used in one intrusion because the appliance logs had
+#    already rotated.
+# 3. A hit that reached the N-central server before it was patched means: audit
+#    N-central users for accounts you did not create, especially email addresses
+#    ending in ".invalid" or with subtle character swaps (N-able), and review the
+#    scripts, jobs and remote sessions the server pushed to managed devices.
+# 4. Huntress hunting lead (not attributed to this CVE): in envoy_proxy_HTTPS.log and
+#    syslog ncentraldms, successful requests to internal API routes containing
+#    URL-encoded values such as %2F.
