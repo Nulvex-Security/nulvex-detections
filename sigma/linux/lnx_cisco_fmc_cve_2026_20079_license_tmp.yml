@@ -1,0 +1,89 @@
+title: Cisco FMC license.tmp Run by package_info.pl (CVE-2026-20079 Indicator)
+id: 7981386c-9ca4-4c7d-afa5-6805cdfd23bf
+status: experimental
+description: |
+  Detects Cisco's published indicator of compromise for CVE-2026-20079, the
+  unauthenticated authentication bypass to root in on-premises Cisco Secure
+  Firewall Management Center (FMC) Software: a system log line in which the FMC
+  utility package_info.pl is run against /var/tmp/license.tmp. Fixed in the
+  September 2026 hardening releases 7.0.10, 7.2.12, 7.4.8, 7.6.6, 7.7.13, 10.0.2
+  and 10.1.0. Cisco fixed Security Cloud Control (SCC) Firewall Management itself.
+  CISA KEV added it on 2026-09-09.
+
+  Sources of the indicator, copied, not inferred:
+    - Cisco advisory cisco-sa-onprem-fmc-authbypass-5JPp45V2 (indicators added
+      2026-07-31, version 2.6 of 2026-09-16): run zgrep "package_info.*license"
+      over /var/log/messages*; output that includes /var/tmp/license.tmp means
+      the flaw "may have been exploited". Cisco's example line:
+      sudo: www : PWD=/ ; USER=root ; COMMAND=/usr/local/sf/bin/package_info.pl /var/tmp/license.tmp --lsm
+    - Cisco advisory cisco-sa-fmc-static-cred-BET3Cjh (CVE-2026-20316) gives the
+      same check, so a match does not say which of the two flaws was used.
+    - Cisco Talos (2026-09-09): UAT-11823 and UAT-11988 had package_info.pl run
+      an attacker-crafted license.tmp as root.
+
+  NULVEX HAS NOT TESTED THIS RULE: we have not run it against logs from an
+  attacked or a clean FMC, and have never seen this line on a real device.
+
+  A match means: contact Cisco TAC. Cisco says its fixes prevent future
+  exploitation only and may not address an existing compromise. Silence is not
+  a clean bill of health: an attacker with root can delete or alter logs.
+references:
+  - https://nulvex.com/research/cve/cve-2026-20079-cisco-fmc-authentication-bypass/
+  - https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-onprem-fmc-authbypass-5JPp45V2
+  - https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-fmc-static-cred-BET3Cjh
+  - https://blog.talosintelligence.com/fmc-ongoing-exploitation/
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-20079
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.execution
+  - attack.t1059.004
+  - attack.privilege-escalation
+  - attack.t1548.003
+  - cve.2026-20079
+  - cve.2026-20316
+logsource:
+  product: linux
+  service: sudo
+  definition: |
+    The Cisco FMC appliance's own system log, /var/log/messages (and rotated
+    copies), where sudo records the command it ran. This is the log Cisco's
+    zgrep check reads. There is no FMC-specific Sigma logsource. If your log
+    platform does not receive this log, export a copy from the FMC or run
+    Cisco's command from the advisory instead.
+detection:
+  keywords_package_info:
+    # Cisco advisory example: /usr/local/sf/bin/package_info.pl
+    - 'package_info.pl'
+  keywords_license_tmp:
+    # Cisco advisory: "If the log message in the output includes /var/tmp/license.tmp"
+    - '/var/tmp/license.tmp'
+  condition: keywords_package_info and keywords_license_tmp
+falsepositives:
+  - Unknown. We do not know whether a legitimate FMC licence or package
+    operation ever writes this line. Cisco treats it as a sign of possible
+    exploitation; confirm with Cisco TAC rather than dismissing a hit.
+  - An authorised test of this flaw against your own FMC, or a lab copy of
+    Cisco's example log line, would match. Confirm who ran it and when.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Upgrade first, to the hardening release for your FMC line: 7.0.10, 7.2.12,
+#    7.4.8, 7.6.6, 7.7.13, 10.0.2 or 10.1.0. Cisco's table has no row for 7.1 or
+#    7.3; ask Cisco TAC or use the Cisco Software Checker.
+# 2. Run it over every copy of /var/log/messages you have. Cisco's example line is
+#    dated 23 July 2026; Cisco says it became aware of exploitation in August.
+#    Hunt as far back as your logs go.
+# 3. A hit means: contact Cisco TAC, then treat it as an incident for the whole
+#    network. Change the credentials the FMC holds or uses (its own accounts,
+#    directory service accounts, database accounts), compare every managed
+#    firewall's policy with a known-good backup, and look for tunnels, proxies
+#    and unknown /etc/init.d/ scripts on the FMC (Cisco Talos, 2026-09-09).
+# 4. Talos's network indicators (addresses and file hashes) are listed in the
+#    article for a one-off search. They are not in this rule.
