@@ -1,0 +1,26 @@
+title: F5 BIG-IP APM OAuth Invalid Token Failure Marker
+id: 67df7802-a0fa-4c67-8de8-9eec6d3f0c28
+status: experimental
+description: "NULVEX HAS NOT TESTED THIS RULE. Selects the exact Error Code (invalid_token) marker in F5 K000162605's published OAuth UserInfo failure message for CVE-2026-94127. This is a single-event review lead. It does not implement F5's sustained repetition threshold of at least ten in one log, IP grouping, or correlation with suspicious audit commands and TMM SIGABRT evidence."
+references:
+  - https://nulvex.com/research/cve/cve-2026-94127-f5-big-ip-apm-oauth-rce/
+  - https://my.f5.com/manage/s/article/K000162605
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - cve.2026-94127
+logsource:
+  category: application
+  product: f5
+  service: bigip_apm
+  definition: "BIG-IP APM logs from /var/log/apm. Requires full event text searchable by Sigma keyword matching. Validate collection and matching before alerting."
+detection:
+  keywords:
+    - 'Error Code (invalid_token)'
+  condition: keywords
+falsepositives:
+  - F5 says the OAuth failure message is normal to observe in some situations; repetition rather than presence is the review signal.
+level: low
