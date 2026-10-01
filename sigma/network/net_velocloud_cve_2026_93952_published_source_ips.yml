@@ -8,8 +8,7 @@ description: >-
   Indicator source: Arista Security Advisory 0183.
 references:
 - 'https://nulvex.com/research/cve/cve-2026-93952-velocloud-orchestrator/'
-- >-
-  https://www.arista.com/en/support/advisories-notices/security-advisory/24765-security-advisory-0183
+- 'https://www.arista.com/en/support/advisories-notices/security-advisory/24765-security-advisory-0183'
 author: Nulvex Security Research
 date: '2026-10-02'
 modified: '2026-10-02'
