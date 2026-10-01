@@ -1,0 +1,34 @@
+title: FortiMail CVE-2026-104286 Vendor Published IP Indicators
+id: 26d687c4-817e-4f67-ae9a-9cd544fcd28a
+status: experimental
+description: "Detects firewall events involving either IP address published as an indicator of compromise in Fortinet FG-IR-26-175. NULVEX HAS NOT TESTED THIS RULE. Scope events to FortiMail appliances before applying it. A match is a triage lead and does not establish exploitation or compromise; an absence of matches does not establish a clean appliance."
+references:
+  - https://fortiguard.fortinet.com/psirt/FG-IR-26-175
+  - https://nulvex.com/research/cve/cve-2026-104286-fortimail/
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - cve.2026-104286
+logsource:
+  category: firewall
+  definition: "Firewall connection events involving FortiMail appliances. Map src_ip and dst_ip to the original peer addresses in your schema and account for NAT. Filter to your FortiMail assets before evaluation; the vendor does not specify a direction for both indicators."
+detection:
+  selection_source:
+    src_ip:
+      - '79.141.169.187'
+      - '45.129.0.192'
+  selection_destination:
+    dst_ip:
+      - '79.141.169.187'
+      - '45.129.0.192'
+  condition: selection_source or selection_destination
+fields:
+  - src_ip
+  - dst_ip
+  - dst_port
+  - action
+falsepositives:
+  - Legitimate traffic involving a listed address requires investigation before attribution.
+  - Address reassignment can make historical indicators match unrelated activity.
+level: medium
