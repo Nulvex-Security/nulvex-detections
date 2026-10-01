@@ -1,0 +1,42 @@
+title: Arista VeloCloud CVE-2026-93952 Published Malicious Source IPs
+id: f59d6684-8671-4e04-95bf-5a82d99c3e24
+status: experimental
+description: >-
+  Detects connections from the two IP addresses Arista publishes as indicators of compromise
+  for CVE-2026-93952. NULVEX HAS NOT TESTED THIS RULE. Scope to inbound traffic towards VeloCloud
+  Orchestrator instances; a match warrants investigation and does not prove successful exploitation.
+  Indicator source: Arista Security Advisory 0183.
+references:
+- 'https://nulvex.com/research/cve/cve-2026-93952-velocloud-orchestrator/'
+- >-
+  https://www.arista.com/en/support/advisories-notices/security-advisory/24765-security-advisory-0183
+author: Nulvex Security Research
+date: '2026-10-02'
+modified: '2026-10-02'
+tags:
+- cve.2026-93952
+logsource:
+  category: firewall
+  definition: >-
+    Connection logs for inbound traffic towards VeloCloud Orchestrator. Map src_ip to the
+    original remote client IP and scope the input to VCO destination addresses. This is a
+    deployment requirement, not a verified VCO log schema.
+detection:
+  selection_vendor_ips:
+    src_ip:
+    - 142.93.149.77
+    - 104.248.126.159
+  condition: selection_vendor_ips
+fields:
+- src_ip
+- dst_ip
+- dst_port
+- action
+falsepositives:
+- >-
+  Address reassignment or benign traffic from a listed address may produce a match; investigate
+  context before acting. This is a general limitation, not a vendor finding about these addresses.
+- >-
+  Logs outside the intended VCO destination scope can match unrelated traffic.
+level: high
+# Tested status: NOT TESTED.
