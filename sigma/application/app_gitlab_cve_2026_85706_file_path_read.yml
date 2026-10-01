@@ -1,0 +1,126 @@
+title: GitLab Unauthenticated Upload-Path File Read Attempt (CVE-2026-85706)
+id: ddf113b0-d65b-44d1-ac4a-4151e90f828c
+status: experimental
+description: |
+  Detects attempts to exploit CVE-2026-85706 in self-managed GitLab CE/EE: an
+  unauthenticated caller supplies its own multipart file.path or metadata.path
+  parameter so that GitLab reads a file from the server instead of the uploaded
+  one (repository commits API and repository files API). Affected: 18.7 before
+  18.11.12, 19.0 before 19.0.9, 19.1 before 19.1.8, 19.2 before 19.2.6, 19.3
+  before 19.3.2. CISA KEV added it on 2026-09-11.
+
+  Every string here is copied from published sources, not inferred:
+    - GitLab Security's detection notes (2026-09-14, gitlab-security-oss/tldr):
+      the log is api_json.log; the parameters are file.path and metadata.path,
+      and public exploits percent-encode them (file%2epath, metadata%2epath);
+      an unauthenticated caller has a meta.client_id starting with "ip/";
+      legitimate values sit under /uploads/tmp/ or /tmp/gitlab/; the
+      high-value targets are gitlab.yml, secrets.yml, database.yml and
+      gitlab-secrets.json.
+    - watchTowr (2026-09-11): hunt for HTTP POST requests to the commits API
+      containing file.path.
+  No source we read published attacker IP addresses, so none are matched.
+
+  NULVEX HAS NOT TESTED THIS RULE: it has not been run against GitLab logs from
+  an attacked or a clean instance by us.
+
+  Triage: a status of 400 is GitLab's expected rejection (nothing read). Any 2xx
+  is a confirmed read: treat the instance's secrets as exposed. The rule only
+  sees what api_json.log retained; silence is not proof that nothing happened.
+references:
+  - https://nulvex.com/research/cve/cve-2026-85706-gitlab-unauthenticated-file-read/
+  - https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-3-2-released/
+  - https://gitlab.com/gitlab-security-oss/tldr/-/blob/main/Detections/platforms/GitLab/Vulnerability%20Detections/local_file_inclusion_gitlab_yml_read.md
+  - https://gitlab.com/gitlab-security-oss/tldr/-/blob/main/Detections/platforms/GitLab/Vulnerability%20Detections/local_file_inclusion_metadata_path.md
+  - https://gitlab.com/gitlab-security-oss/tldr/-/blob/main/Detections/platforms/GitLab/Vulnerability%20Detections/local_file_inclusion_path_enumeration.md
+  - https://watchtowr.com/intelligence/rapid-reaction-gitlab-critical-path-traversal-vulnerability-cve-2026-85706/
+  - https://nvd.nist.gov/vuln/detail/CVE-2026-85706
+author: Nulvex Security Research
+date: 2026-10-01
+modified: 2026-10-01
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - attack.credential-access
+  - attack.t1552.001
+  - cve.2026-85706
+logsource:
+  product: gitlab
+  service: api_json
+  definition: |
+    GitLab Rails API log, api_json.log (Linux package:
+    /var/log/gitlab/gitlab-rails/api_json.log; source install:
+    /home/git/gitlab/log/api_json.log; Helm chart: Webservice pods,
+    subcomponent "api_json"). There is no standard Sigma logsource for it.
+    "params" must hold the logged parameter array as compact JSON text, as
+    GitLab writes it. Field names follow GitLab's own published rules.
+detection:
+  sel_method:
+    method: POST
+  sel_unauthenticated:
+    # GitLab: an unauthenticated caller is keyed by IP as "ip/<addr>"
+    meta.client_id|startswith: 'ip/'
+  sel_path_param:
+    # GitLab: the two attacker-reachable parameters, plain and percent-encoded
+    params|contains:
+      - 'file.path'
+      - 'file%2epath'
+      - 'metadata.path'
+      - 'metadata%2epath'
+  sel_secret_target:
+    # GitLab: the configuration and secrets files that are the main target
+    params|contains:
+      - 'gitlab.yml'
+      - 'secrets.yml'
+      - 'database.yml'
+      - 'gitlab-secrets.json'
+  filter_upload_temp:
+    # GitLab: where legitimate values live. A substring filter can be evaded by
+    # an attacker who includes these strings, which is why sel_secret_target
+    # alerts regardless of this filter.
+    params|contains:
+      - '/uploads/tmp/'
+      - '/tmp/gitlab/'
+  condition: sel_method and sel_unauthenticated and sel_path_param and (sel_secret_target or not filter_upload_temp)
+fields:
+  - time
+  - status
+  - method
+  - path
+  - route
+  - params
+  - remote_ip
+  - meta.client_id
+  - ua
+  - correlation_id
+falsepositives:
+  - Vulnerability scanners aimed at this CVE, including any you run yourself or
+    GitLab's own atomic tests, will match. Confirm the source address.
+  - An internal tool that posts a host path instead of file content would match.
+    GitLab describes such tools as repetitive, single-path and recognisable by
+    user agent.
+  - A relocated upload or Workhorse temp directory makes legitimate values fall
+    outside the filter. Add the new prefix to filter_upload_temp; do not drop
+    the rule. We have not measured any of this against real GitLab logs.
+level: high
+---
+# Deployment notes (not part of the Sigma rule)
+#
+# Tested status: NOT TESTED. See the description.
+#
+# 1. Upgrade first: at least 19.3.2, 19.2.6, 19.1.8, 19.0.9 or 18.11.12, and
+#    preferably the newest patch release for your branch.
+# 2. Run this over every api_json.log you still have, including rotated files.
+#    GitLab's notes advise hunting back to "August"; watchTowr first saw probes
+#    on 2026-09-11. Hunt as far back as your logs go.
+# 3. Read the status field. 400: rejected, nothing read. Any 2xx: a confirmed
+#    read. Treat the files named in params as exposed and rotate the
+#    credentials they hold (database, object storage, SMTP, LDAP), plus the
+#    secrets kept in CI/CD variables, at their source. GitLab's maintenance
+#    guide warns against rotating the gitlab_rails section of
+#    gitlab-secrets.json with its standard procedure; ask GitLab Support.
+# 4. If your instance is not open to anonymous users, a low-privilege account
+#    can attempt the same thing. GitLab suggests dropping the "ip/" condition
+#    (sel_unauthenticated) in that case; expect more noise.
+# 5. If your pipeline does not parse meta.client_id, an unauthenticated request
+#    also has no user_id or username in api_json.log.
