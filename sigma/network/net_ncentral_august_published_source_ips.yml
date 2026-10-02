@@ -1,0 +1,49 @@
+title: N-able N-central August Incident Published Source IPs
+id: 5d468276-5c62-4d99-8207-0f923f367f86
+status: experimental
+description: >-
+  Detects traffic from source IP addresses published by N-able as indicators of
+  compromise for the August N-central incident involving CVE-2026-18577 and
+  CVE-2026-18556. Scope the data to inbound connections towards N-central.
+  A match is an investigation lead and does not establish exploitation or which
+  CVE was used. NULVEX HAS NOT TESTED THIS RULE. A clear result does not establish
+  that the server or managed devices are clean.
+references:
+  - https://nulvex.com/research/cve/cve-2026-18577-n-able-n-central-august/
+  - https://www.n-able.com/blog/n-central-security-update-august-2-2026
+  - https://status.n-able.com/2026/08/02/n-central-2026-3-hotfix-1-mitigation-for-cve-2026-18577/
+author: Nulvex Security Research
+date: 2026-10-02
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - cve.2026-18577
+  - cve.2026-18556
+logsource:
+  category: firewall
+  definition: >-
+    Firewall or connection logs for inbound traffic to the N-central server.
+    Map src_ip to the client source address. Limit the input or backend query
+    to the N-central destination before using this rule.
+detection:
+  selection_vendor_published_ips:
+    src_ip:
+      - 173.249.252.200
+      - 185.156.46.150
+      - 23.234.94.43
+      - 37.153.90.88
+      - 37.19.210.32
+      - 68.235.46.214
+      - 68.235.46.235
+      - 87.249.138.34
+      - 92.118.112.181
+  condition: selection_vendor_published_ips
+fields:
+  - src_ip
+  - dst_ip
+  - dst_port
+  - action
+falsepositives:
+  - Legitimate traffic from shared or reassigned IP addresses.
+  - Historical indicator matches unrelated to a successful N-central compromise.
+level: medium
