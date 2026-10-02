@@ -1,0 +1,45 @@
+title: Progress LoadMaster CVE-2026-8037 eSentire Attacker IPs
+id: 35d7b5f2-c2c0-4b40-a1bc-f724c7b6ba63
+status: experimental
+description: >-
+  Detects connections from three attacker IP addresses published in eSentire's
+  2026-06-30 advisory about CVE-2026-8037. eSentire observed attempts beginning
+  2026-06-29 but says those attempts were unsuccessful and no post-compromise
+  activity was observed in its cases. NULVEX HAS NOT TESTED THIS RULE.
+  Scope the input logs to traffic directed at your Progress LoadMaster or related
+  affected connection-manager appliances. A match is an investigation lead,
+  not proof of successful exploitation. An absence of matches does not establish
+  that an appliance is uncompromised.
+references:
+  - https://www.esentire.com/security-advisories/progress-kemp-loadmaster-vulnerability-targeted-cve-2026-8037
+  - https://nulvex.com/research/cve/cve-2026-8037-progress-loadmaster/
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+tags:
+  - attack.initial-access
+  - attack.t1190
+  - cve.2026-8037
+logsource:
+  category: firewall
+  definition: >-
+    Connection logs scoped to traffic directed at the affected appliances.
+    Map src_ip to the original client source address; validate any proxy or NAT
+    field mapping before use. Set the destination scope in your logging pipeline
+    or in a local adaptation of the rule.
+detection:
+  selection_esentire_ips:
+    src_ip:
+      - 192.42.116.58
+      - 192.42.116.105
+      - 146.70.139.154
+  condition: selection_esentire_ips
+fields:
+  - src_ip
+  - dst_ip
+  - dst_port
+  - action
+falsepositives:
+  - Legitimate traffic from shared or reassigned IP addresses
+  - Unrelated scanning or activity from the same addresses
+level: medium
