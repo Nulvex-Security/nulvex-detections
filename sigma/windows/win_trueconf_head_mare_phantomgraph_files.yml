@@ -1,0 +1,36 @@
+title: TrueConf Head Mare PhantomGraph DLL File Creation
+id: 80a8b755-239b-42f5-9b7d-6c5a8453fe5f
+status: experimental
+description: >-
+  Detects file creation at the two Windows PhantomGraph DLL paths published by Kaspersky in its Head Mare
+  TrueConf Server investigation involving CVE-2026-72529 and CVE-2026-72530. NULVEX HAS NOT TESTED THIS
+  RULE. A match is an investigation lead and does not establish exploitation of either CVE. Existing files,
+  changed paths, PhantomCore and Linux activity are outside this rule's coverage.
+references:
+- 'https://securelist.com/tr/head-mare-targets-trueconf-server-with-phantomcore/120988/'
+- 'https://nulvex.com/research/cve/cve-2026-72529-trueconf-server/'
+author: Nulvex Security Research
+date: 2026-10-02
+modified: 2026-10-02
+logsource:
+  category: file_event
+  product: windows
+  definition: >-
+    Windows file-creation events, such as Sysmon Event ID 11, with the file path mapped to TargetFilename.
+detection:
+  selection:
+    TargetFilename:
+    - 'C:\Windows\System32\inetsrv\SysExcSvc.dll'
+    - 'C:\Windows\System32\inetsrv\SysReadSvc.dll'
+  condition: selection
+fields:
+- TargetFilename
+- Image
+- User
+falsepositives:
+- >-
+  Authorised malware analysis, restoration or security exercises that write files to these paths.
+- >-
+  Legitimate files using the same paths; confirm file identity and context before responding.
+level: high
+# Tested status: NOT TESTED.
