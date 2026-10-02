@@ -1,0 +1,37 @@
+title: PaperCut Application Server Spawning Windows Command Shell
+id: e0268207-8acb-4d32-a788-86d215803dd1
+status: experimental
+description: >-
+  Detects pc-app.exe launching cmd.exe, a process relationship PaperCut publishes
+  as observed post-compromise behaviour in its NG/MF security advisory covering
+  CVE-2026-82078 and CVE-2026-81578. NULVEX HAS NOT TESTED THIS RULE.
+  Apply to Windows PaperCut Application Servers with process creation telemetry
+  recording image and parent image. A match requires investigation and does not
+  establish which vulnerability was used. Absence of matches does not rule out compromise.
+references:
+  - https://www.papercut.com/kb/Main/security-bulletin-27-aug-2026-urgent-security-advisory/
+  - https://nulvex.com/research/cve/cve-2026-82078-papercut/
+author: Nulvex Security Research
+date: 2026-10-02
+tags:
+  - attack.execution
+  - attack.t1059.003
+  - cve.2026-82078
+  - cve.2026-81578
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith: '\pc-app.exe'
+    Image|endswith: '\cmd.exe'
+  condition: selection
+fields:
+  - ParentImage
+  - Image
+  - ParentCommandLine
+  - CommandLine
+  - User
+falsepositives:
+  - Authorised administration or integrations that cause the PaperCut Application Server to invoke a Windows command shell
+level: high
