@@ -1,0 +1,49 @@
+title: Cisco SD-WAN Manager Traversal WAR Upload (CVE-2026-20262)
+id: 51683d3b-e0bd-4a4c-8b3a-4d0d82c10262
+status: experimental
+description: |
+  Selects Cisco's published suspicious upload pattern in vmanage-server.log:
+  SdraAnyConnectFileUploadHandler, the Remote Access Anyconnect profile upload
+  phrase, a parent-directory traversal marker and a WAR target under WildFly's
+  standalone deployments directory, all in one log line.
+  Indicator credit: Cisco PSIRT, cisco-sa-sdwan-arbfw-c2rZvQ, revision 1.1.
+  Nulvex has NOT TESTED this rule against real telemetry. Backend compilation,
+  field mapping and operational false-positive rates are untested.
+  Cisco warns that some indicator entries can occur during standard operations.
+  Review against authorized activity; a match is an investigation lead, not
+  proof of compromise. This does not cover every arbitrary file write or the
+  separate CVE-2026-20245 CLI flaw. It does not require the example WAR filename
+  or follow-on deployment/access events that Cisco says may not be observed.
+references:
+  - https://sec.cloudapps.cisco.com/security/center/content/CiscoSecurityAdvisory/cisco-sa-sdwan-arbfw-c2rZvQ
+  - https://nulvex.com/research/cve/cve-2026-20262-cisco-sd-wan-manager-june-2026/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+tags:
+  - cve.2026-20262
+logsource:
+  product: cisco
+  service: sdwan_vmanage_server
+  definition: |
+    Collect /var/log/nms/vmanage-server.log from Catalyst SD-WAN Manager,
+    including retained rotations. Map the complete raw line to Message.
+    This is a proposed logsource and field mapping, not a vendor-defined
+    Sigma integration; validate retention and parsing in your own pipeline.
+detection:
+  selection:
+    'Message|contains|all':
+      - 'SdraAnyConnectFileUploadHandler'
+      - 'uploaded Remote Access Anyconnect profile file:'
+      - '../'
+      - '/wildfly/standalone/deployments/'
+      - '.war'
+  condition: selection
+fields:
+  - Message
+falsepositives:
+  - Cisco notes that some indicator entries may occur during standard operations; compare with normal posture and authorized uploads.
+  - Independent substrings do not parse or prove the destination path; inspect the complete line and investigate its origin with Cisco TAC if unclear.
+level: high
+# tested: false
+# Tested status: NOT TESTED against real telemetry.
