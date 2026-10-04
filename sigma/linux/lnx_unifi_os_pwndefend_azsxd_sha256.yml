@@ -1,0 +1,43 @@
+title: Nulvex UniFi OS PwnDefend Published azsxd Implant Hash
+id: 99d8d671-6429-41b7-b1b5-a497aeceebc7
+status: experimental
+description: |
+  Matches the SHA-256 PwnDefend published on June 9, 2026 for the x86-64
+  azsxd v2.0 implant in its UniFi OS exploitation report. PwnDefend is an
+  independent researcher; the report warns that LLM-assisted analysis may
+  contain errors. The published file hash is the sole selection indicator.
+  Tested status: NOT TESTED against real telemetry. No SIEM compilation or
+  incident telemetry validation was performed. A synthetic match only
+  checks selection logic and does not establish operational efficacy.
+references:
+  - https://www.pwndefend.com/2026/06/09/cve-2026-34910-exploitation-itw-building-a-botnet-mirai/
+  - https://nulvex.com/research/cve/cve-2026-34908-ubiquiti-unifi-os/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+tags:
+  - cve.2026-34908
+  - cve.2026-34909
+  - cve.2026-34910
+logsource:
+  category: file_event
+  product: linux
+  definition: |
+    Requires collected file hash telemetry with the computed SHA-256 mapped
+    to SHA256. This is a proposed collector mapping, not a vendor UniFi
+    field or a claim that all file-event collectors compute hashes.
+detection:
+  selection:
+    SHA256: '5833e2344434022e18e22c4b93dc4a7710908fd03312499014d5cabf06bfc459'
+  condition: selection
+fields:
+  - SHA256
+  - TargetFilename
+falsepositives:
+  - Authorized malware analysis or a stored sample with the same published hash.
+  - A synthetic test event carrying the published hash.
+level: high
+# Tested status: NOT TESTED. Credit: PwnDefend, independent researcher.
+# Normalize the SHA256 value to lowercase hexadecimal before matching.
+# One exact x86-64 file hash does not cover every reported architecture variant.
+# Missing hash telemetry, deletion before collection or changed bytes can prevent a hit.
