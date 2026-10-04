@@ -1,0 +1,65 @@
+title: Check Point CVE-2026-50751 Published Infrastructure IP Match
+id: 50b68e9d-0d36-4dd3-a9cd-43816fd9fe46
+status: experimental
+description: |
+  Matches the 16 IPv4 indicators published by Check Point in its June 8, 2026
+  IKEv1 advisory and June 9 to June 11 additions. Indicators are credited to
+  Check Point Research, Lotem Finkelstein. SourceIp and DestinationIp are proposed
+  normalized collector mappings, not a verified Check Point native log schema.
+  This is an infrastructure match, not a detection of the authentication bypass
+  or proof of compromise. The two vendor MD5 indicators are not covered.
+  Nulvex has not tested this rule against real telemetry. Validate mapping,
+  event selection and backend compilation before use. Tested status: NOT TESTED.
+references:
+  - https://blog.checkpoint.com/security/check-point-releases-important-hotfix-for-vulnerabilities-in-deprecated-ikev1-vpn-protocol/
+  - https://nulvex.com/research/cve/cve-2026-50751-check-point-ikev1/
+author: Nulvex
+date: 2026-10-04
+tags:
+  - cve.2026-50751
+logsource:
+  category: network_connection
+  definition: Collected gateway or network connection events with normalized SourceIp and DestinationIp; mapping is proposed and unverified.
+detection:
+  selection_source:
+    SourceIp:
+      - '45.77.149.152'
+      - '209.182.225.136'
+      - '38.60.157.139'
+      - '162.33.177.101'
+      - '45.76.26.42'
+      - '144.208.127.155'
+      - '38.54.88.201'
+      - '38.54.107.167'
+      - '66.42.99.200'
+      - '45.63.104.106'
+      - '45.61.136.173'
+      - '146.71.81.184'
+      - '208.123.119.167'
+      - '64.176.228.109'
+      - '158.247.195.147'
+      - '144.208.127.134'
+  selection_destination:
+    DestinationIp:
+      - '45.77.149.152'
+      - '209.182.225.136'
+      - '38.60.157.139'
+      - '162.33.177.101'
+      - '45.76.26.42'
+      - '144.208.127.155'
+      - '38.54.88.201'
+      - '38.54.107.167'
+      - '66.42.99.200'
+      - '45.63.104.106'
+      - '45.61.136.173'
+      - '146.71.81.184'
+      - '208.123.119.167'
+      - '64.176.228.109'
+      - '158.247.195.147'
+      - '144.208.127.134'
+  condition: selection_source or selection_destination
+falsepositives:
+  - Legitimate connections involving infrastructure later reassigned or shared with unrelated users.
+  - Approved security testing or indicator replay in collected events.
+  - Blocked or failed connection attempts; an address match does not prove successful exploitation.
+level: medium
