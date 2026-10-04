@@ -1,0 +1,42 @@
+title: Zammad Session Material in ERROR Logs (CVE-2026-102489)
+id: 7d38b474-70bb-4b72-8c81-095bf0cbb935
+status: experimental
+description: |
+  Detects DIVD's published CVE-2026-102489 log indicator: the ERROR marker
+  and either a Cookie serialization marker or a clients serialization
+  marker. Indicator credit: DIVD CSIRT, case DIVD-2026-00015, log-check script v2.
+  Nulvex has not tested this rule against real attack or legitimate telemetry.
+  This is a log symptom of session material exposure, not proof of successful
+  exploitation or root escalation. The false-positive rate is unmeasured.
+references:
+  - https://csirt.divd.nl/cases/DIVD-2026-00015/
+  - https://csirt.divd.nl/downloads/DIVD-2026-00015/cve-2026-102489_ioc_check_script_v2.sh
+  - https://nulvex.com/research/cve/cve-2026-102489-zammad/
+author: Nulvex Security Research
+date: 2026-10-04
+modified: 2026-10-04
+tags:
+  - cve.2026-102489
+logsource:
+  product: zammad
+  category: application
+  definition: Raw Zammad application log messages with original punctuation and ERROR marker preserved
+detection:
+  selection_error:
+    - 'ERROR -- :'
+  selection_session:
+    - '"Cookie"=>"'
+    - '@clients={'
+  condition: selection_error and selection_session
+falsepositives:
+  - Legitimate application errors that record session material or the same serialization markers
+  - Diagnostic or test events containing the same markers; no baseline has been measured
+level: high
+# Tested status: false. Only synthetic indicator matching may be checked during packaging.
+# Deployment notes: both keyword selections must match the same complete raw event.
+# The backend must support Sigma keyword matching and preserve the original message.
+# Co-occurrence is checked; the ordering used by DIVD's regex is not enforced.
+# Scope includes Zammad production, railsserver, websocket and scheduler application logs.
+# Missing or rotated logs, truncation, punctuation rewriting and multiline splitting can
+# prevent matches. A silent result cannot establish absence of compromise.
+# No indicator for CVE-2026-102490 is asserted. DIVD's script is not reproduced here.
