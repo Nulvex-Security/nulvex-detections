@@ -1,0 +1,38 @@
+# Tested status: NOT TESTED
+title: DD-WRT UPnP M-SEARCH UUID Hunting Markers
+id: bc835b54-22a9-5403-9ea7-e3640c0da8c0
+status: experimental
+description: 'Broad hunting aid using FortiGuard Labs published M-SEARCH, UDP 1900 and ST:uuid: markers
+  for CVE-2021-27137. The source describes oversized values but supplies no numeric threshold; this rule
+  does not test length and can match benign discovery. Nulvex has not tested this rule against real telemetry.
+  It does not prove exploitation or C0XMO infection. Level is low because the markers also occur in ordinary
+  UPnP discovery.'
+references:
+- https://nulvex.com/research/cve/cve-2008-4128-old-flaws-added-july-2026/
+- https://www.fortinet.com/blog/threat-research/inside-cross-platform-propagation-of-new-gafgyt-variant-c0xmo
+author: Nulvex
+date: '2026-10-04'
+modified: '2026-10-04'
+tags:
+- cve.2021-27137
+logsource:
+  category: network_connection
+  definition: Custom UDP packet-payload telemetry. Map Protocol, DestinationPort and Payload to sensor
+    fields. Ordinary flow records without payload cannot support this rule.
+detection:
+  selection_transport:
+    Protocol: udp
+    DestinationPort: 1900
+  selection_markers:
+    Payload|contains|all:
+    - M-SEARCH
+    - 'ST:uuid:'
+  condition: selection_transport and selection_markers
+fields:
+- Protocol
+- DestinationPort
+- Payload
+falsepositives:
+- Legitimate UPnP UUID discovery traffic; compare with a local baseline.
+- Approved scanner or test traffic using the same published request markers.
+level: low
