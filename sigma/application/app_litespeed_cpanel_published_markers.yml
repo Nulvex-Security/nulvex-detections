@@ -1,0 +1,36 @@
+title: LiteSpeed cPanel Published Log Marker Review (CVE-2026-54420)
+id: b02995be-1cd1-4c16-b758-2318c763b5a0
+status: experimental
+description: |
+  Review selection based only on LiteSpeed Technologies' published cPanel log
+  indicators in its June 1, 2026 advisory for CVE-2026-54420.
+  Tested status: NOT TESTED against real telemetry. No detection effectiveness
+  or backend compilation is established. Synthetic checks are not telemetry tests.
+  Complete collected cPanel log lines must be mapped to Message. This field is
+  a proposed collector mapping, not a vendor field schema.
+  Matching output indicates possible exploitation and can have false positives.
+  This rule does not correlate same-user function ordering, concurrency or IPs
+  and does not establish successful exploitation or root access.
+references:
+  - https://blog.litespeedtech.com/2026/06/01/security-update-for-litespeed-cpanel-plugin-2/
+  - https://nulvex.com/research/cve/cve-2026-54420-litespeed-cpanel-plugin/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+logsource:
+  product: linux
+  service: cpanel
+detection:
+  generate:
+    'Message|contains': 'cpanel_jsonapi_func=generateEcCert'
+  package_size:
+    'Message|contains': 'cpanel_jsonapi_func=packageUserSize'
+  certificate:
+    'Message|re': 'cert_action_entry .*geneccert'
+  condition: generate or package_size or certificate
+fields:
+  - Message
+falsepositives:
+  - LiteSpeed warns matching log output can include false positives.
+  - Legitimate certificate or account activity may match individual markers; review same-user pairing, concurrency and source IP context using the vendor guidance.
+level: low
