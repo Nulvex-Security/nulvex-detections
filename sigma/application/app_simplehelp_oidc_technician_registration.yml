@@ -1,0 +1,34 @@
+title: SimpleHelp OIDC Technician Registration Review (CVE-2026-48558)
+id: 5b888ffa-5337-41c4-a13a-0dfc7dab7c83
+status: experimental
+description: |
+  Review-level selection of the published SimpleHelp application log markers
+  Registering technician login for and [New Anon], credited to Zach Hanley
+  of Horizon3.ai in the June 12, 2026 CVE-2026-48558 indicators article.
+  These are noisy review indicators, not evidence of successful exploitation.
+  Legitimate first OIDC logins produce the same lines.
+  Tested status: NOT TESTED against real telemetry. Synthetic matching checks
+  do not constitute a telemetry test. No detection effectiveness is established.
+  The complete collected application log line must be mapped to Message.
+  Message is an explicit proposed collector mapping, not a vendor field schema.
+references:
+  - https://horizon3.ai/attack-research/disclosures/cve-2026-48558-simplehelp-authentication-bypass-iocs/
+  - https://nulvex.com/research/cve/cve-2026-48558-simplehelp/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+logsource:
+  product: simplehelp
+  service: server
+detection:
+  registration:
+    'Message|contains': 'Registering technician login for'
+  new_anon:
+    'Message|contains': '[New Anon]'
+  condition: registration or new_anon
+fields:
+  - Message
+falsepositives:
+  - Legitimate first OIDC logins produce the same published lines.
+  - Authorised group-authenticated technician registration must be reconciled with approved accounts.
+level: low
