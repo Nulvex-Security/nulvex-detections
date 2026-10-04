@@ -1,0 +1,44 @@
+title: Joomla Extension Published Upload Task Or Scanner Indicator
+id: e920632a-7b9d-4fe5-bd63-d5f1f0c1a6a0
+status: experimental
+description: |
+  Flags the exact asset.uploadCustomIcon query-string indicator published for
+  SP Page Builder (CVE-2026-48908), or the exact icagenda-batch/1.0 User-Agent
+  published for iCagenda (CVE-2026-48939), by Phil Taylor of mySites.guru.
+  These are investigation leads. A match does not establish successful code
+  execution. No indicators for Page Builder CK or Balbooa Forms are included.
+  Tested status: NOT TESTED against real attack or legitimate telemetry by Nulvex.
+  Matches the literal task name and the %2e-encoded form mySites.guru warns about;
+  other encodings or altered strings can be missed.
+  Preserve query strings and User-Agent values and map the listed fields before use.
+references:
+  - https://mysites.guru/blog/sp-page-builder-zero-day-uploadcustomicon-rce/
+  - https://mysites.guru/blog/icagenda-zero-day-file-upload-rce/
+  - https://nulvex.com/research/cve/cve-2026-48908-joomla-extensions-july-2026/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+tags:
+  - cve.2026-48908
+  - cve.2026-48939
+logsource:
+  category: webserver
+detection:
+  selection_sppb_task:
+    'cs-uri-query|contains':
+      - 'asset.uploadCustomIcon'
+      - 'asset%2euploadCustomIcon'
+  selection_icagenda_scanner:
+    'cs-user-agent|contains': 'icagenda-batch/1.0'
+  condition: selection_sppb_task or selection_icagenda_scanner
+fields:
+  - cs-method
+  - cs-uri-stem
+  - cs-uri-query
+  - cs-user-agent
+  - sc-status
+falsepositives:
+  - Legitimate SP Page Builder custom-icon upload activity can contain the task string.
+  - Approved security scanners or other clients using the same User-Agent can match.
+  - No false-positive rate has been measured on real traffic.
+level: medium
