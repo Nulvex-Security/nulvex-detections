@@ -1,0 +1,40 @@
+title: Arista VeloCloud Orchestrator CVE-2026-16812 Published Attacker IP Match
+id: b0b3645f-ff8a-41b7-b48d-d3af0cebe35e
+status: experimental
+description: |
+  Matches the three IPv4 addresses Arista published in Security Advisory 0144
+  (revision 1.2) as observed conducting attacks on VeloCloud Orchestrator, with
+  the advice to block them and review logs for their presence. Indicators are
+  credited to Arista Networks. SourceIp and DestinationIp are proposed normalized
+  collector mappings, not a verified VCO native log schema. Arista states there is
+  no single definitive indicator of compromise. This is an infrastructure match,
+  not a detection of the command-injection flaw or proof of compromise.
+  Nulvex has not tested this rule against real telemetry. Validate mapping,
+  event selection and backend compilation before use. Tested status: NOT TESTED.
+references:
+  - https://www.arista.com/en/support/advisories-notices/security-advisory/24364-security-advisory-0144
+  - https://nulvex.com/research/cve/cve-2026-16812-velocloud-orchestrator/
+author: Nulvex
+date: 2026-10-04
+tags:
+  - cve.2026-16812
+logsource:
+  category: network_connection
+  definition: Collected firewall, proxy or network connection events with normalized SourceIp and DestinationIp; mapping is proposed and unverified.
+detection:
+  selection_source:
+    SourceIp:
+      - '8.19.75.217'
+      - '206.72.242.124'
+      - '206.72.242.162'
+  selection_destination:
+    DestinationIp:
+      - '8.19.75.217'
+      - '206.72.242.124'
+      - '206.72.242.162'
+  condition: selection_source or selection_destination
+falsepositives:
+  - Legitimate connections involving infrastructure later reassigned or shared with unrelated users.
+  - Approved security testing or indicator replay in collected events.
+  - Blocked or failed connection attempts; an address match does not prove successful exploitation.
+level: medium
