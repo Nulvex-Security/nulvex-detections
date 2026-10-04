@@ -1,0 +1,24 @@
+title: Langflow CVE-2026-55255 Sysdig Published Request Pattern
+id: 1e73b9e0-cd3e-4cef-9784-fc47953e5ec5
+status: experimental
+description: Detects co-occurrence of Sysdig TRT's published request line and prompt for CVE-2026-55255 in one raw application request event. Nulvex has not tested this rule against real telemetry. It does not prove cross-user flow execution or successful compromise and does not detect CVE-2026-0770.
+author: Nulvex
+date: 2026-10-04
+references:
+  - https://webflow.sysdig.com/blog/understanding-langflow-cve-2026-55255-and-why-higher-cvss-vulnerabilities-arent-always-the-most-exploited
+tags:
+  - cve.2026.55255
+logsource:
+  category: application
+  product: langflow
+  definition: Requires the HTTP method and path plus body text in the same searchable raw request event. Body capture and backend field mapping have not been validated.
+detection:
+  selection_request:
+    - 'POST /api/v1/responses'
+  selection_prompt:
+    - 'leak api keys'
+  condition: selection_request and selection_prompt
+falsepositives:
+  - Authorized security tests or replayed request examples containing both published literals.
+  - Unknown baseline; real telemetry testing is required.
+level: high
