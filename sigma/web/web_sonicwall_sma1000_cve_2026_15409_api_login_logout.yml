@@ -1,0 +1,39 @@
+title: SonicWall SMA1000 Unexpected API Login or Logout HTTP 200
+id: 77231578-ea1d-48e8-adc4-57218e5bb1db
+status: experimental
+description: |
+  Matches SonicWall's published API login or logout indicator with HTTP 200
+  in extraweb_access.log. Indicator credit belongs to SonicWall PSIRT,
+  advisory SNWLID-2026-0008. The vendor states that these paths do not exist
+  in legitimate configuration. Nulvex has NOT TESTED this rule against real
+  telemetry. A match is an investigation lead. Parser mapping, backend
+  compilation, coverage and false-positive rates are untested. This does
+  not cover every exploitation method or implement the other indicators.
+references:
+  - https://psirt.global.sonicwall.com/vuln-detail/SNWLID-2026-0008
+  - https://nulvex.com/research/cve/cve-2026-15409-sonicwall-sma1000-july-2026/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+logsource:
+  category: webserver
+  product: sonicwall
+  definition: |
+    Collect events from extraweb_access.log only, including retained rotations.
+    Map the parsed URI path without the query string to the first selection
+    field and the response status to the second selection field. Normalize
+    the status to a string. This proposed mapping is NOT TESTED against real
+    telemetry. Validate the mapping before deployment.
+detection:
+  selection:
+    cs-uri-stem:
+      - '/__api__/login'
+      - '/__api__/logout'
+    sc-status: '200'
+  condition: selection
+falsepositives:
+  - Synthetic or authorized test traffic matching the indicator; no vendor false-positive rate is supplied.
+  - Misparsed URI or HTTP status, or events incorrectly attributed to extraweb_access.log; validate the full original event.
+level: high
+# tested: false
+# Tested status: NOT TESTED against real telemetry.
