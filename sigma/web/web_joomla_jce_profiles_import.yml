@@ -1,0 +1,36 @@
+# Tested status: NOT TESTED
+title: Joomla JCE Profile Import Request (CVE-2026-48907)
+id: 18085207-96e0-45e3-9101-abf4e81641c2
+status: experimental
+description: Matches requests to the JCE profile-import task that Widget Factory, the JCE developer, published
+  as the CVE-2026-48907 attack request (index.php?option=com_jce&task=profiles.import). Access logs usually
+  cannot show authentication, so legitimate administrator imports also match. NOT TESTED against real
+  telemetry. A hit is an investigation lead and does not prove successful code execution.
+references:
+- https://www.joomlacontenteditor.net/news/jce-security-update-and-a-free-patch-for-older-sites
+- https://nulvex.com/research/cve/cve-2026-48907-cms-extensions-june-2026/
+author: Nulvex
+date: 2026-10-04
+modified: 2026-10-04
+tags:
+- attack.initial-access
+- attack.t1190
+- cve.2026-48907
+logsource:
+  category: webserver
+detection:
+  selection:
+    cs-uri-stem|endswith: /index.php
+    cs-uri-query|contains|all:
+    - option=com_jce
+    - task=profiles.import
+  condition: selection
+fields:
+- cs-uri-stem
+- cs-uri-query
+- c-ip
+- sc-status
+falsepositives:
+- A legitimate administrator importing an editor profile (rare; confirm with the site administrators).
+- Authorized security checks targeting the published request.
+level: medium
